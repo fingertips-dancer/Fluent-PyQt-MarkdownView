@@ -2,6 +2,7 @@ import time
 import typing as t
 
 from PyQt5.QtCore import Qt, QPointF, QRect, QMargins, QRectF, QSizeF
+from PyQt5.QtGui import QFontMetrics
 from PyQt5.QtGui import QPainter, QPaintEvent, QMouseEvent, QKeyEvent, QInputMethodEvent, QKeySequence, QPixmap
 from PyQt5.QtWidgets import QTextEdit, QApplication, QAction
 from qfluentwidgets import FluentIcon as FIF
@@ -62,6 +63,10 @@ class MarkdownEdit(QTextEdit):
         self._cursor.showCursorShaderTimer.timeout.connect(self.viewport().update)
         # ast render pos
         self._ast_render_pos = {}
+        # pre edit
+        self.__preeditText = ""
+        # pre edit
+        self.__style = MarkdownStyle()
 
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_menu)
@@ -167,7 +172,7 @@ class MarkdownEdit(QTextEdit):
                 rect_x = bs[0].x()
                 for i, (b, nb) in enumerate(zip(bs[:-1], bs[1:])):
                     if b.y() != nb.y():
-                        lineHeight = self._cachePaint.lineHeight(ast=ast, pos=i + _si)
+                        lineHeight = self._cachePmaint.lineHeight(ast=ast, pos=i + _si)
                         painter.drawRoundedRect(QRectF(QPointF(rect_x, b.y() + self._ast_render_pos[ast]),
                                                        QSizeF(b.x() - rect_x, lineHeight)),
                                                 radius, radius)
@@ -176,6 +181,16 @@ class MarkdownEdit(QTextEdit):
                     lineHeight = self._cachePaint.lineHeight(ast=ast, pos=i + _si)
                     painter.drawRoundedRect(QRectF(QPointF(rect_x, b.y() + self._ast_render_pos[ast]),
                                                    QSizeF(nb.x() - rect_x, lineHeight)), radius, radius)
+        if self.__preeditText != "":
+            font = self.__style.hintFont(font=painter.font(), ast="paragraph")
+            fm = QFontMetrics(font)
+            # rect = fm.boundingRect(text=self.__preeditText)
+            painter.setFont(font)
+            pos = self._cachePaint.cursorPluginBases(ast=self.cursor().ast(), pos=self.cursor().pos())
+            lineHeight = self._cachePaint.lineHeight(ast=self.cursor().ast(), pos=self.cursor().pos())
+            pos = pos + QPointF(0, self._ast_render_pos[self.cursor().ast()] + lineHeight - fm.descent())  # <-- 考虑偏移
+            painter.drawText(pos, self.__preeditText)
+
         painter.end()
         # print("t", time.time() - st)
 
@@ -247,18 +262,23 @@ class MarkdownEdit(QTextEdit):
 
     def inputMethodEvent(self, event: QInputMethodEvent) -> None:
         """输入法输入"""
-
-        self.cursor().add(event.commitString())
+        # 获取当前的候选词
+        commitString = event.commitString()
+        if commitString != "":
+            self.cursor().add(event.commitString())
+            self.__preeditText = ""
+        else:
+            self.__preeditText = event.preeditString()  # 获取未最终确定的输入内容
         self.renderMarkdownToCache()
         self.viewport().update()
 
     def inputMethodQuery(self, property: Qt.InputMethodQuery) -> t.Any:
+        # 获取当前输入法的状态
         if property == Qt.ImCursorRectangle:
             # 返回输入法候选框的位置
             pos = self._cachePaint.cursorPluginBases(ast=self.cursor().ast(), pos=self.cursor().pos())
-            rect = self._cachePaint.cachePxiamp()[self.cursor().ast()].rect()
             pos = pos + QPointF(0,
-                                self._ast_render_pos[self.cursor().ast()] +
+                                self._ast_render_pos[self.cursor().ast()] + \
                                 self._cachePaint.lineHeight(ast=self.cursor().ast(), pos=self.cursor().pos()))
             # 在光标下方显示候选框
             return QRect(pos.toPoint(), QSizeF(pos.x(), 1).toSize())  # 100 是候选框的高度

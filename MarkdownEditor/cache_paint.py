@@ -155,11 +155,18 @@ class CachePaint(AbstructCachePaint):
     def painter(self) -> QPainter:
         return self._painter
 
-    def textParagraphs(self, ast=None) -> t.List[TextParagraph]:
+    def textParagraphs(self, ast=None,pos:int=None) -> t.List[TextParagraph] or TextParagraph:
         if ast is None:
             return self._paragraphs
-        else:
+        elif pos is None:
             return self._cacheTextParagraphs[ast]
+        else:
+            ps = self.textParagraphs(ast=ast)
+            for p in ps:
+                if pos > len(p.cursorBases()):
+                    pos -= len(p.cursorBases())
+                    continue
+                return p
 
     def cachePxiamp(self) -> t.Dict[MarkdownASTBase, QPixmap]:
         return self._cachePxiamp
@@ -190,3 +197,4 @@ class CachePaint(AbstructCachePaint):
                 pos -= len(p.cursorBases())
                 continue
             return p.indentation()
+
