@@ -3,10 +3,10 @@ import typing as t
 
 from PyQt5.QtCore import Qt, QPointF, QRect
 from PyQt5.QtGui import QPainter, QPaintEvent, QMouseEvent, QKeyEvent, QInputMethodEvent, QKeySequence
-from PyQt5.QtWidgets import QTextEdit, QApplication, QAction
+from PyQt5.QtWidgets import QTextEdit, QApplication, QAction,QScrollArea
 from qfluentwidgets import SmoothScrollDelegate
-from superfluentwidget.Backend import MoreFluentIcon as FIF
-from superfluentwidget.Widget import RoundMenu, Action
+from qfluentwidgets import FluentIcon as FIF
+from qfluentwidgets import RoundMenu, Action
 
 from .cursor import MarkdownCursor
 from .document import MarkDownDocument
@@ -46,8 +46,8 @@ class MarkdownEdit(QTextEdit):
         self.scrollDelegate = SmoothScrollDelegate(self)
         self.__document = MarkDownDocument()
         self.__document.cursor().showCursorShaderTimer.timeout.connect(lambda: self.viewport().update())
-        self.setDocument(self.__document)
-        self.verticalScrollBar().setMaximum(1000)
+        # self.setDocument(self.__document)
+        self.verticalScrollBar().setMaximum(1024)
 
         self.pragh = None
 
@@ -62,6 +62,8 @@ class MarkdownEdit(QTextEdit):
         self.paste_action.setShortcut(QKeySequence(QKeySequence.Paste))
         self.paste_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
         self.addAction(self.paste_action)
+
+        self.setMarkdown("")
 
     def setMarkdown(self, text: str) -> None:
         self.__document.setMarkdown(text)
