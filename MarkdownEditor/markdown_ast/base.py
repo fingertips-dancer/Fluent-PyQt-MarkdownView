@@ -2,7 +2,7 @@ import typing as t
 
 from MarkdownEditor.component.style import MarkdownStyle
 from ..abstruct import AbstructCursor
-from ..abstruct import AbstructHorizontalText
+from ..abstruct import AbstructCachePaint
 
 class MarkdownASTBase():
     __node__ = {}
@@ -162,8 +162,8 @@ class MarkdownASTBase():
         assert hasattr(self, "children"), "the ast node has not children"
         self.children.append(child)
 
-    def render(self, ht: AbstructHorizontalText, style: MarkdownStyle, cursor: AbstructCursor = None):
-        raise ImportError(self)
+    def render(self, ht: AbstructCachePaint, style: MarkdownStyle, cursor: AbstructCursor = None):
+        raise NotImplementedError(self)
 
     def segment(self) -> t.List[t.Tuple['MarkdownASTBase', int]]:
         raise NotImplementedError

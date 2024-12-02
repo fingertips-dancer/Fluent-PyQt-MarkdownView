@@ -28,7 +28,7 @@ class View(FramelessWindow):
     def onOpenBtnClickedEvent(self):
         path, filetype = QFileDialog.getOpenFileName(self.window(), "open markdown", "", "*.md")
         if path == "":return
-        with open(path) as f:
+        with open(path,"r",encoding="utf8") as f:
             self.makdownView.setMarkdown(text=f.read())
 
     def onSaveBtnClickedEvent(self):

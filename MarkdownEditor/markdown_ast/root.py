@@ -5,7 +5,7 @@ from mistune.plugins.math import math
 
 from .base import MarkdownASTBase
 from MarkdownEditor.component.style import MarkdownStyle
-from ..abstruct import AbstructCursor, AbstructHorizontalText
+from ..abstruct import AbstructCursor, AbstructCachePaint
 
 
 class MarkdownAstRoot(MarkdownASTBase):
@@ -31,7 +31,7 @@ class MarkdownAstRoot(MarkdownASTBase):
             children.append(sub_ast)
         return children
 
-    def render(self, ht: AbstructHorizontalText, style: MarkdownStyle, cursor: AbstructCursor = None):
+    def render(self, ht: AbstructCachePaint, style: MarkdownStyle, cursor: AbstructCursor = None):
         for c in self.children:
             c.render(ht, style=style, cursor=cursor)
 

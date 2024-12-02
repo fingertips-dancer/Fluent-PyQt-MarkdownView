@@ -3,7 +3,7 @@ import typing as t
 from ..base import MarkdownASTBase
 from ...component import MarkdownStyle
 from ...abstruct import AbstructCursor
-from ...abstruct import AbstructHorizontalText
+from ...abstruct import AbstructCachePaint
 from ...abstruct import AbstructTextParagraph as ATP
 
 
@@ -16,7 +16,7 @@ class BlockMath(MarkdownASTBase):
     def toMarkdown(self) -> str:
         return "$$\n" + self.raw + "\n$$\n"
 
-    def render(self, ht: AbstructHorizontalText, style: MarkdownStyle, cursor: AbstructCursor = None):
+    def render(self, ht: AbstructCachePaint, style: MarkdownStyle, cursor: AbstructCursor = None):
         isShowHide = False if cursor is None else cursor.isIn(ast=self)
         ht.painter().setFont(style.hintFont(ht.painter().font(), ast="block_math"))
         if isShowHide:
@@ -51,7 +51,7 @@ class InlineMath(MarkdownASTBase):
     def toMarkdown(self) -> str:
         return "$" + self.raw + "$"
 
-    def render(self, ht: AbstructHorizontalText, style: MarkdownStyle, cursor: AbstructCursor = None):
+    def render(self, ht: AbstructCachePaint, style: MarkdownStyle, cursor: AbstructCursor = None):
         isShowHide = False if cursor is None else cursor.isIn(ast=self)
         if isShowHide:
             # $ + self.raw + $

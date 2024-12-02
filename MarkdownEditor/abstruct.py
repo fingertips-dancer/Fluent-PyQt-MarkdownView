@@ -19,7 +19,6 @@ class AbstractMarkDownDocument(QTextDocument):
 
     # signal
     heightChanged = pyqtSignal(int)
-
     def __init__(self):
         super(AbstractMarkDownDocument, self).__init__()
         self._text: str = ""
@@ -316,7 +315,7 @@ class AbstructTextParagraph():
         return self.__outPragraphReutrnSpace
 
 
-class AbstructHorizontalText():
+class AbstructCachePaint():
     def newParagraph(self):
         """ 创建一个新的 Paragraph """
         raise NotImplementedError

@@ -2,7 +2,7 @@ import typing as t
 
 from PyQt5.QtCore import QPointF
 from PyQt5.QtCore import Qt, QRectF
-from PyQt5.QtGui import QPainter, QFontMetrics
+from PyQt5.QtGui import QPainter, QFontMetrics, QPixmap, QColor
 
 from .abstruct import AbstructTextParagraph
 # from .cursor import MarkdownCursor
@@ -22,10 +22,16 @@ class TextParagraph(AbstructTextParagraph):
 
         return wapper
 
-    def render(self, painter: QPainter) -> int:
+    def render(self) -> QPixmap:
         """ 新的 y 位置"""
         if len(self._cache) == 0:
-            return self.paintPoint().y()
+            return QPixmap(0, 0)
+        self.setStartY(0)
+
+        # 创建一个透明的 QPixmap，尺寸为 400x300
+        pixmap = QPixmap(self.viewWdith(), 1000)
+        pixmap.fill(QColor(0, 0, 0, 0))  # 使用完全透明的颜色
+        painter = QPainter(pixmap)
 
         # 确定 ast (root 的 子项)
         self.setAST(self._cache[0][2])
@@ -62,7 +68,9 @@ class TextParagraph(AbstructTextParagraph):
                 painter.setBrush(brush)
                 method(self, data=data, ast=ast, painter=painter)
 
-        return self.paintPoint().y()
+        painter.end()
+        pixmap = pixmap.copy(QRectF(0, 0, self.viewWdith(), self.paintPoint().y()).toRect())
+        return pixmap
 
     """ cache """
 

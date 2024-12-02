@@ -3,7 +3,7 @@ import typing as t
 from ..base import MarkdownASTBase
 from ...component import MarkdownStyle
 from ...abstruct import AbstructCursor
-from ...abstruct import AbstructHorizontalText
+from ...abstruct import AbstructCachePaint
 
 
 @MarkdownASTBase.registerAst("link")
@@ -18,7 +18,7 @@ class Link(MarkdownASTBase):
         p = self.url.replace('%5C', '\\')
         return rf'![' + ''.join(c.toMarkdown() for c in self.children) + ']' + rf"({p})"
 
-    def render(self, ht: AbstructHorizontalText, style: MarkdownStyle, cursor: AbstructCursor = None):
+    def render(self, ht: AbstructCachePaint, style: MarkdownStyle, cursor: AbstructCursor = None):
         oriP = ht.painter().pen()
         isShowHide = False if cursor is None else cursor.isIn(ast=self)
         ht.text(text=self.toMarkdown(), ast=self)

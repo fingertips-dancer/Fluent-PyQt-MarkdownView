@@ -3,7 +3,7 @@ import typing as t
 from ..base import MarkdownASTBase
 from ...component import MarkdownStyle
 from ...abstruct import AbstructCursor
-from ...abstruct import AbstructHorizontalText, AbstructTextParagraph
+from ...abstruct import AbstructCachePaint, AbstructTextParagraph
 
 
 @MarkdownASTBase.registerAst("text")
@@ -18,7 +18,7 @@ class Text(MarkdownASTBase):
     def toMarkdown(self) -> str:
         return self.raw
 
-    def render(self, ht: AbstructHorizontalText, style: MarkdownStyle, cursor: AbstructCursor = None):
+    def render(self, ht: AbstructCachePaint, style: MarkdownStyle, cursor: AbstructCursor = None):
         ht.renderContent(func=AbstructTextParagraph.Render_Text, data=self.raw, ast=self)
 
     def segment(self) -> t.List[t.Tuple['MarkdownASTBase', int]]:
@@ -37,7 +37,7 @@ class Strong(MarkdownASTBase):
     def toMarkdown(self) -> str:
         return "**" + "".join([c.toMarkdown() for c in self.children]) + "**"
 
-    def render(self, ht: AbstructHorizontalText, style: MarkdownStyle, cursor: AbstructCursor = None):
+    def render(self, ht: AbstructCachePaint, style: MarkdownStyle, cursor: AbstructCursor = None):
         oriF = ht.painter().font()
         ht.painter().setFont(style.hintFont(ht.painter().font(), ast="strong"))
 
@@ -70,7 +70,7 @@ class Emphasis(MarkdownASTBase):
     def toMarkdown(self) -> str:
         return "*" + "".join([c.toMarkdown() for c in self.children]) + "*"
 
-    def render(self, ht: AbstructHorizontalText, style: MarkdownStyle, cursor: AbstructCursor = None):
+    def render(self, ht: AbstructCachePaint, style: MarkdownStyle, cursor: AbstructCursor = None):
         oriF = ht.painter().font()
         ht.painter().setFont(style.hintFont(ht.painter().font(), ast="emphasis"))
 

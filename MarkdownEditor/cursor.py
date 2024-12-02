@@ -3,6 +3,7 @@ import typing as t
 from PyQt5.QtCore import QPointF, QRectF
 
 from .abstruct import AbstructCursor, AbstractMarkDownDocument
+from .cache_paint import CachePaint
 from .markdown_ast import Text, MarkdownASTBase, Image, MarkdownAstRoot
 
 
@@ -14,6 +15,10 @@ class MarkdownCursor(AbstructCursor):
     MOVE_UP = 5
 
     contentAST = (Text, Image)
+
+    def __init__(self, parent):
+        super(MarkdownCursor, self).__init__(parent)
+        self._cachePaint: CachePaint = None
 
     def add(self, text: str) -> None:
         """添加文本"""
@@ -96,27 +101,18 @@ class MarkdownCursor(AbstructCursor):
         parent = self.parent()
         if flag == self.MOVE_FELT:
             self.setPos(self.pos() - 1)
+
         elif flag == self.MOVE_RIGHT:
             self.setPos(self.pos() + 1)
+
         elif flag == self.MOVE_UP:  # 向上
-            rect, isFind = self.rect(), False
-            for p in parent.textParagraphs()[::-1]:
-                if p.ast() is self.ast() or isFind:
-                    isFind = True
-                    for b in p.cursorBases()[::-1]:
-                        if b.y() < rect.top():
-                            self.__moveToPos(pos=QPointF(rect.right(), b.y() + 1))
-                            return
+            # 偏移
+            self.__moveToPos(pos=QPointF(0, -10 - self._cachePaint.lineHeight(ast=self.ast(), pos=self.pos())))
 
         elif flag == self.MOVE_DOWN:
-            rect, isFind = self.rect(), False
-            for p in parent.textParagraphs():
-                if p.ast() is self.ast() or isFind:
-                    isFind = True
-                    for b in p.cursorBases():
-                        if b.y() > rect.top():
-                            self.__moveToPos(pos=QPointF(rect.right(), b.y() + 1))
-                            return
+            # 偏移
+            self.__moveToPos(pos=QPointF(0, 10 + self._cachePaint.lineHeight(ast=self.ast(), pos=self.pos())))
+
         elif flag == self.MOVE_MOUSE:
             self.__moveToPos(pos)
 
@@ -172,38 +168,76 @@ class MarkdownCursor(AbstructCursor):
                     raise Exception(asts)
 
     def __moveToPos(self, pos: QPointF):
-        """将光标移动到 pos """
-        parent = self.parent()
-        possible = None
+        """ 将光标移动 pos(偏移) """
+        # 1. find target ast
+        y = pos.y() + self._cachePaint.cursorPluginBases(ast=self.ast(), pos=self.pos()).y()
+        x = pos.x() + self._cachePaint.cursorPluginBases(ast=self.ast(), pos=self.pos()).x()
+        if y > 0:
+            for ast in self.rootAst().children[(self.rootAst().index(ast=self.ast())):]:
+                if y < self._cachePaint.cachePxiamp()[ast].height():
+                    break
+                y -= self._cachePaint.cachePxiamp()[ast].height()
+            else:
+                ast = self.rootAst().children[-1]
+        else:
+            for ast in self.rootAst().children[:self.rootAst().index(ast=self.ast())][::-1]:
+                y += self._cachePaint.cachePxiamp()[ast].height()
+                if 0 <= y:
+                    break
+            else:
+                ast = self.rootAst().children[0]
+        bs, t = self._cachePaint.cursorPluginBases(ast=ast), 0
+        for bi, b in enumerate(bs):
+            print(b.y(), y, b.y() + self._cachePaint.lineHeight(ast, bi), len(bs))
+            if b.y() <= y <= b.y() + self._cachePaint.lineHeight(ast, bi):
+                if b.x() >= x:
+                    self.setAST(ast)
+                    self.setPos(bi)
+                    if bi != 0 and x - bs[bi - 1].x() < b.x() - x:
+                        self.setPos(bi - 1)
+                    return
+                elif len(bs) > bi + 1 and b.y() < bs[bi + 1].y():  # 在同一个段落内换行,选择最右侧
+                    self.setAST(ast)
+                    self.setPos(bi)
+                elif len(bs) == bi + 1:
+                    self.setAST(ast)
+                    self.setPos(bi)
+            elif b.y() > y:
+                return
 
-        # 帅选
-        for i, p in enumerate(parent.textParagraphs()):
-            if len(p.cursorBases()) == 0: continue
-            if p.cursorBases()[0].y() < pos.y() <= p.cursorBases()[-1].y() + p.lineHeight():
-                possible = p
-                break
-        if possible is None: return
-        ps, t = [p for p in parent.textParagraphs() if p.ast() is possible.ast()], 0
-        for p in ps:
-            bs = p.cursorBases()
-            # 加速跳过
-            # 跳过前面的
-            for bi, b in enumerate(bs):
-                if b.y() <= pos.y() <= b.y() + p.lineHeight():
-                    if b.x() >= pos.x():
-                        self.setAST(p.ast())
-                        self.setPos(t)
-                        if bi != 0 and pos.x() - bs[bi - 1].x() < b.x() - pos.x():
-                            self.setPos(t - 1)
-                        return
-                    elif len(bs) > bi + 1 and b.y() < bs[bi + 1].y():  # 在同一个段落内换行,选择最右侧
-                        self.setAST(p.ast())
-                        self.setPos(t)
-                    elif len(bs) == bi + 1:
-                        self.setAST(p.ast())
-                        self.setPos(t)
-                        return
-                t += 1
+        # self._cachePaint.cachePxiamp()[]
+
+        # parent = self.parent()
+        # possible = None
+        #
+        # # 帅选
+        # for i, p in enumerate(parent.textParagraphs()):
+        #     if len(p.cursorBases()) == 0: continue
+        #     if p.cursorBases()[0].y() < pos.y() <= p.cursorBases()[-1].y() + p.lineHeight():
+        #         possible = p
+        #         break
+        # if possible is None: return
+        # ps, t = [p for p in parent.textParagraphs() if p.ast() is possible.ast()], 0
+        # for p in ps:
+        #     bs = p.cursorBases()
+        #     # 加速跳过
+        #     # 跳过前面的
+        #     for bi, b in enumerate(bs):
+        #         if b.y() <= pos.y() <= b.y() + p.lineHeight():
+        #             if b.x() >= pos.x():
+        #                 self.setAST(p.ast())
+        #                 self.setPos(t)
+        #                 if bi != 0 and pos.x() - bs[bi - 1].x() < b.x() - pos.x():
+        #                     self.setPos(t - 1)
+        #                 return
+        #             elif len(bs) > bi + 1 and b.y() < bs[bi + 1].y():  # 在同一个段落内换行,选择最右侧
+        #                 self.setAST(p.ast())
+        #                 self.setPos(t)
+        #             elif len(bs) == bi + 1:
+        #                 self.setAST(p.ast())
+        #                 self.setPos(t)
+        #                 return
+        #         t += 1
         return
 
     def rect(self) -> QRectF:

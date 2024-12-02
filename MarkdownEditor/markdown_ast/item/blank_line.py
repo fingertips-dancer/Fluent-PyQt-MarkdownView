@@ -2,7 +2,7 @@ import typing as t
 
 from ..base import MarkdownASTBase
 from ...component import MarkdownStyle
-from ...abstruct import AbstructCursor, AbstructHorizontalText, AbstructTextParagraph
+from ...abstruct import AbstructCursor, AbstructCachePaint, AbstructTextParagraph
 
 
 @MarkdownASTBase.registerAst("blank_line")
@@ -15,7 +15,7 @@ class BlankLine(MarkdownASTBase):
     def toMarkdown(self) -> str:
         return "\n"
 
-    def render(self, ht: AbstructHorizontalText, style: MarkdownStyle, cursor: AbstructCursor = None):
+    def render(self, ht: AbstructCachePaint, style: MarkdownStyle, cursor: AbstructCursor = None):
         ht.painter().setFont(style.hintFont(font=ht.painter().font(), ast="blank_line"))
         if cursor:
             ast: MarkdownASTBase = cursor.ast()

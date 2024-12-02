@@ -4,7 +4,7 @@ from PyQt5.QtGui import QFontMetrics
 
 from ..base import MarkdownASTBase
 from ...component import MarkdownStyle
-from ...abstruct import AbstructCursor, AbstructHorizontalText, AbstructTextParagraph
+from ...abstruct import AbstructCursor, AbstructCachePaint, AbstructTextParagraph
 
 
 @MarkdownASTBase.registerAst("list_item")
@@ -18,7 +18,7 @@ class ListItem(MarkdownASTBase):
     def toMarkdown(self) -> str:
         return "".join([c.toMarkdown() for c in self.children])
 
-    def render(self, ht: AbstructHorizontalText, style: MarkdownStyle, cursor: AbstructCursor = None):
+    def render(self, ht: AbstructCachePaint, style: MarkdownStyle, cursor: AbstructCursor = None):
         for c in self.children:
             c.render(ht=ht, style=style, cursor=cursor)
 
@@ -56,7 +56,7 @@ class List(MarkdownASTBase):
 
         return string
 
-    def render(self, ht: AbstructHorizontalText, style: MarkdownStyle, cursor: AbstructCursor = None):
+    def render(self, ht: AbstructCachePaint, style: MarkdownStyle, cursor: AbstructCursor = None):
         font = style.hintFont(font=ht.painter().font(), ast="list")
         ht.painter().setFont(font)
         # 可能是子list

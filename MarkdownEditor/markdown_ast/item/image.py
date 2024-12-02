@@ -3,7 +3,7 @@ import typing as t
 from ..base import MarkdownASTBase
 from ...component import MarkdownStyle
 from ...abstruct import AbstructCursor
-from ...abstruct import AbstructHorizontalText
+from ...abstruct import AbstructCachePaint
 from ...abstruct import AbstructTextParagraph as ATP
 
 
@@ -19,7 +19,7 @@ class Image(MarkdownASTBase):
         p = self.url.replace('%5C', '\\')
         return '![img]' + rf"({p})"
 
-    def render(self, ht: AbstructHorizontalText, style: MarkdownStyle, cursor: AbstructCursor = None):
+    def render(self, ht: AbstructCachePaint, style: MarkdownStyle, cursor: AbstructCursor = None):
         oriP = ht.painter().pen()
         isShowHide = False if cursor is None else cursor.isIn(ast=self)
         p = self.url.replace('%5C', '\\')

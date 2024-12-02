@@ -3,7 +3,7 @@ import typing as t
 from ..base import MarkdownASTBase
 from ...component import MarkdownStyle
 from ...abstruct import AbstructCursor
-from ...abstruct import AbstructHorizontalText
+from ...abstruct import AbstructCachePaint
 
 
 @MarkdownASTBase.registerAst("block_text")
@@ -17,7 +17,7 @@ class BlockText(MarkdownASTBase):
     def toMarkdown(self) -> str:
         return "".join([c.toMarkdown() for c in self.children])
 
-    def render(self, ht: AbstructHorizontalText, style: MarkdownStyle, cursor: AbstructCursor = None):
+    def render(self, ht: AbstructCachePaint, style: MarkdownStyle, cursor: AbstructCursor = None):
         ht.painter().setPen(style.hintPen(pen=ht.painter().pen(), ast="block_text"))
         for c in self.children:
             c.render(ht, style=style, cursor=cursor)

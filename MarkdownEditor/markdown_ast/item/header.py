@@ -2,7 +2,7 @@ import typing as t
 
 from ..base import MarkdownASTBase
 from ...component import MarkdownStyle
-from ...abstruct import AbstructCursor, AbstructHorizontalText, AbstructTextParagraph
+from ...abstruct import AbstructCursor, AbstructCachePaint, AbstructTextParagraph
 
 
 @MarkdownASTBase.registerAst("heading")
@@ -22,7 +22,7 @@ class Header(MarkdownASTBase):
     def toMarkdown(self) -> str:
         return "#" * self.level + " " + "".join([c.toMarkdown() for c in self.children]) + "\n"
 
-    def render(self, ht: AbstructHorizontalText, style: MarkdownStyle, cursor: AbstructCursor = None):
+    def render(self, ht: AbstructCachePaint, style: MarkdownStyle, cursor: AbstructCursor = None):
         font = style.hintFont(font=ht.painter().font(), ast="header", level=self.level)
         ht.painter().setFont(font)
 

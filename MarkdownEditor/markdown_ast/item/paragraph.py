@@ -3,7 +3,7 @@ import typing as t
 from ..base import MarkdownASTBase
 from ...component import MarkdownStyle
 from ...abstruct import AbstructCursor
-from ...abstruct import AbstructHorizontalText, AbstructTextParagraph
+from ...abstruct import AbstructCachePaint, AbstructTextParagraph
 
 
 @MarkdownASTBase.registerAst("paragraph")
@@ -18,7 +18,7 @@ class Paragraph(MarkdownASTBase):
     def toMarkdown(self) -> str:
         return "".join([c.toMarkdown() for c in self.children]) + "\n"
 
-    def render(self, ht: AbstructHorizontalText, style: MarkdownStyle, cursor: AbstructCursor = None):
+    def render(self, ht: AbstructCachePaint, style: MarkdownStyle, cursor: AbstructCursor = None):
         font = style.hintFont(font=ht.painter().font(), ast="paragraph")
         ht.painter().setFont(font)
         for c in self.children:
