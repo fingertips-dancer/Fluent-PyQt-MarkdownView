@@ -137,7 +137,6 @@ class MarkdownCursor(AbstructCursor):
         # 1.计算需要更新的markdown
         start_idx, end_idx = self.rootAst().index(start_ast), self.rootAst().index(end_ast)
         new_markdown = start_ast.toMarkdown()[:start_pos] + text + end_ast.toMarkdown()[end_pos:]
-
         asts, insertidx = self.__swap_content_in_stard_and_end(s=start_idx, e=end_idx + 1, markdown=new_markdown)
         if isMoveCursor:
             # 可能减少block,也可能增加block
@@ -188,7 +187,6 @@ class MarkdownCursor(AbstructCursor):
                 ast = self.rootAst().children[0]
         bs, t = self._cachePaint.cursorPluginBases(ast=ast), 0
         for bi, b in enumerate(bs):
-            print(b.y(), y, b.y() + self._cachePaint.lineHeight(ast, bi), len(bs))
             if b.y() <= y <= b.y() + self._cachePaint.lineHeight(ast, bi):
                 if b.x() >= x:
                     self.setAST(ast)

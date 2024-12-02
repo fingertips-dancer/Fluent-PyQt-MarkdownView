@@ -106,7 +106,6 @@ class List(MarkdownASTBase):
         for item in self.children:
             if isinstance(item, ListItem):
                 string += "    " * self.depth + (rf"{num}. " if self.ordered else "- ") + item.toMarkdown() + "\n"
-                print(string)
             elif isinstance(item, List):
                 string += item.toMarkdown()
             else:

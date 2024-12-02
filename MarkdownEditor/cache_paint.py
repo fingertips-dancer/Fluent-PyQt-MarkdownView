@@ -80,7 +80,7 @@ class CachePaint(AbstructCachePaint):
             self._cachePxiamp.clear()
             self._cacheCursorPluginBases.clear()
             self._cacheTextParagraphs.clear()
-        print(12312312312)
+
         for p in self._paragraphs:
             p.setInPragraphReutrnSpace(self._inPragraphReutrnSpace)
             p.setOutPragraphReutrnSpace(self._outPragraphReutrnSpace)

@@ -58,7 +58,7 @@ class MarkdownEdit(QTextEdit):
         self._margins = QMargins(5, 5, 5, 5)
         # cursor
         self._cursor = MarkdownCursor(self)
-        self._cursor._cachePaint =  self._cachePaint
+        self._cursor._cachePaint = self._cachePaint
         self._cursor.showCursorShaderTimer.timeout.connect(self.viewport().update)
         # ast render pos
         self._ast_render_pos = {}
@@ -163,7 +163,7 @@ class MarkdownEdit(QTextEdit):
                 _ei = end_pos if ast is end_ast else len(bs)
                 if _ei - _si < 1: continue
                 radius, bs = 5, bs[_si:_ei + 1]
-                if len(bs) <= 1:continue
+                if len(bs) <= 1: continue
                 rect_x = bs[0].x()
                 for i, (b, nb) in enumerate(zip(bs[:-1], bs[1:])):
                     if b.y() != nb.y():
@@ -217,8 +217,7 @@ class MarkdownEdit(QTextEdit):
         cursor = self.cursor()
         view_pos = e.pos() + QPointF(0, self.verticalScrollBar().value())
         cursor_pos = self._cachePaint.cursorPluginBases(ast=self.cursor().ast(), pos=self.cursor().pos())
-        cursor_pos = cursor_pos + QPointF(0,self._ast_render_pos[self.cursor().ast()])
-        print(view_pos, cursor_pos)
+        cursor_pos = cursor_pos + QPointF(0, self._ast_render_pos[self.cursor().ast()])
         cursor.move(flag=MarkdownCursor.MOVE_MOUSE,
                     pos=view_pos - cursor_pos)
         cursor.setSelectMode(mode=cursor.SELECT_MODE_SINGLE)
@@ -248,15 +247,22 @@ class MarkdownEdit(QTextEdit):
 
     def inputMethodEvent(self, event: QInputMethodEvent) -> None:
         """输入法输入"""
+
         self.cursor().add(event.commitString())
+        self.renderMarkdownToCache()
         self.viewport().update()
 
     def inputMethodQuery(self, property: Qt.InputMethodQuery) -> t.Any:
-        if property == Qt.ImCursorRectangle and False:
+        if property == Qt.ImCursorRectangle:
             # 返回输入法候选框的位置
-            rect = self.cursor().rect().toRect()
+            pos = self._cachePaint.cursorPluginBases(ast=self.cursor().ast(), pos=self.cursor().pos())
+            rect = self._cachePaint.cachePxiamp()[self.cursor().ast()].rect()
+            pos = pos + QPointF(0,
+                                self._ast_render_pos[self.cursor().ast()] +
+                                self._cachePaint.lineHeight(ast=self.cursor().ast(), pos=self.cursor().pos()))
             # 在光标下方显示候选框
-            return QRect(rect.x(), rect.bottom(), rect.width(), 50)  # 100 是候选框的高度
+            return QRect(pos.toPoint(), QSizeF(pos.x(), 1).toSize())  # 100 是候选框的高度
+        self.renderMarkdownToCache()
         return super().inputMethodQuery(property)
 
     def keyPressEvent(self, e: QKeyEvent) -> None:
@@ -304,7 +310,8 @@ class MarkdownEdit(QTextEdit):
                     # Handle non-shifted versions of special characters
                     char = char.lower() if char.isalpha() else e.text()
             # 添加
-            if char: self.cursor().add(char)
+            if char:
+                self.cursor().add(char)
             print(char)
 
         # update ast render

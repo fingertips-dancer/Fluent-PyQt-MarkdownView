@@ -145,9 +145,7 @@ class MarkdownASTBase():
         """ 是否是父类"""
         possible = ast
         ast = self
-        print(ast, possible)
         while hasattr(ast, "parent"):
-            print(ast,possible)
             if ast is possible:
                 return True
             else:  # 子类的子类
