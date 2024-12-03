@@ -172,7 +172,7 @@ class MarkdownEdit(QTextEdit):
                 rect_x = bs[0].x()
                 for i, (b, nb) in enumerate(zip(bs[:-1], bs[1:])):
                     if b.y() != nb.y():
-                        lineHeight = self._cachePmaint.lineHeight(ast=ast, pos=i + _si)
+                        lineHeight = self._cachePaint.lineHeight(ast=ast, pos=i + _si)
                         painter.drawRoundedRect(QRectF(QPointF(rect_x, b.y() + self._ast_render_pos[ast]),
                                                        QSizeF(b.x() - rect_x, lineHeight)),
                                                 radius, radius)
@@ -212,6 +212,10 @@ class MarkdownEdit(QTextEdit):
         del temp, painter
         self._cachePaint.setPainter(None)
         self._cachePaint.render()
+
+        # 计算需要的 verticalScroll
+        self.verticalScrollBar().setMaximum(
+            int(max(self.viewport().height(), self._cachePaint.height() - self.viewport().height() + 1)))
         return
 
     def resizeEvent(self, event) -> None:
@@ -342,13 +346,13 @@ class MarkdownEdit(QTextEdit):
         # 调整
         QApplication.instance().processEvents()  # <---先处理一次事件,获取响应的rect,不然输入事件会不同步
         # 获取 cusor 所在 的ast,以及对应的rect
-        ast = self.cursor().ast()
-        rect = self._cachePaint.cachePxiamp()[ast].rect()
-        rect.moveTo(0, self._ast_render_pos[ast])
-        if rect.top() < self.verticalScrollBar().value():
-            self.verticalScrollBar().setValue(int(rect.top()))
-        elif rect.bottom() > self.verticalScrollBar().value() + self.viewport().height():
-            self.verticalScrollBar().setValue(int(rect.bottom() - self.viewport().height()))
+        pos = self._cachePaint.cursorPluginBases(ast=self.cursor().ast(), pos=self.cursor().pos())
+        y = pos.y() + self._ast_render_pos[self.cursor().ast()]
+        lineHeight = self._cachePaint.lineHeight(ast=self.cursor().ast(), pos=self.cursor().pos())
+        if y < self.verticalScrollBar().value():
+            self.verticalScrollBar().setValue(int(y))
+        elif y + lineHeight > self.verticalScrollBar().value() + self.viewport().height():
+            self.verticalScrollBar().setValue(int(y + lineHeight - self.viewport().height()))
 
     def document(self) -> MarkDownDocument:
         return self.__document

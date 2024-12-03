@@ -107,11 +107,27 @@ class MarkdownCursor(AbstructCursor):
 
         elif flag == self.MOVE_UP:  # 向上
             # 偏移
-            self.__moveToPos(pos=QPointF(0, -10 - self._cachePaint.lineHeight(ast=self.ast(), pos=self.pos())))
+            bs = self._cachePaint.cursorPluginBases(ast=self.ast())[:self.pos() + 1]
+            y = bs[-1].y()
+            b = next((_b for _b in bs[::-1] if _b.y() < y), None)
+            if b is None:
+                if self.rootAst().astOf(0) is self.ast():  # <-顶部节点
+                    return
+                up_ast = self.rootAst().astOf(idx=self.rootAst().index(self.ast()))
+                y = - self._cachePaint.cachePxiamp(ast=up_ast).height() + \
+                    self._cachePaint.cursorPluginBases(ast=up_ast, pos=-1).y() + 1 - y
+            else:
+                y = b.y() - y + 1
+            self.__moveToPos(pos=QPointF(0, y))
 
         elif flag == self.MOVE_DOWN:
             # 偏移
-            self.__moveToPos(pos=QPointF(0, 10 + self._cachePaint.lineHeight(ast=self.ast(), pos=self.pos())))
+            # fint y > y of cursor
+            bs = self._cachePaint.cursorPluginBases(ast=self.ast())[self.pos():]
+            y = bs[0].y()
+            b = next((_b for _b in bs if _b.y() > y), None)
+            y = 1 - y + (self._cachePaint.cachePxiamp(ast=self.ast()).height() if b is None else b.y())
+            self.__moveToPos(pos=QPointF(0, y))
 
         elif flag == self.MOVE_MOUSE:
             self.__moveToPos(pos)
@@ -177,14 +193,14 @@ class MarkdownCursor(AbstructCursor):
                     break
                 y -= self._cachePaint.cachePxiamp()[ast].height()
             else:
-                ast = self.rootAst().children[-1]
+                return # 没有
         else:
             for ast in self.rootAst().children[:self.rootAst().index(ast=self.ast())][::-1]:
                 y += self._cachePaint.cachePxiamp()[ast].height()
                 if 0 <= y:
                     break
             else:
-                ast = self.rootAst().children[0]
+                return # 没有
         bs, t = self._cachePaint.cursorPluginBases(ast=ast), 0
         for bi, b in enumerate(bs):
             if b.y() <= y <= b.y() + self._cachePaint.lineHeight(ast, bi):
@@ -202,41 +218,6 @@ class MarkdownCursor(AbstructCursor):
                     self.setPos(bi)
             elif b.y() > y:
                 return
-
-        # self._cachePaint.cachePxiamp()[]
-
-        # parent = self.parent()
-        # possible = None
-        #
-        # # 帅选
-        # for i, p in enumerate(parent.textParagraphs()):
-        #     if len(p.cursorBases()) == 0: continue
-        #     if p.cursorBases()[0].y() < pos.y() <= p.cursorBases()[-1].y() + p.lineHeight():
-        #         possible = p
-        #         break
-        # if possible is None: return
-        # ps, t = [p for p in parent.textParagraphs() if p.ast() is possible.ast()], 0
-        # for p in ps:
-        #     bs = p.cursorBases()
-        #     # 加速跳过
-        #     # 跳过前面的
-        #     for bi, b in enumerate(bs):
-        #         if b.y() <= pos.y() <= b.y() + p.lineHeight():
-        #             if b.x() >= pos.x():
-        #                 self.setAST(p.ast())
-        #                 self.setPos(t)
-        #                 if bi != 0 and pos.x() - bs[bi - 1].x() < b.x() - pos.x():
-        #                     self.setPos(t - 1)
-        #                 return
-        #             elif len(bs) > bi + 1 and b.y() < bs[bi + 1].y():  # 在同一个段落内换行,选择最右侧
-        #                 self.setAST(p.ast())
-        #                 self.setPos(t)
-        #             elif len(bs) == bi + 1:
-        #                 self.setAST(p.ast())
-        #                 self.setPos(t)
-        #                 return
-        #         t += 1
-        return
 
     def rect(self) -> QRectF:
         parent = self.parent()

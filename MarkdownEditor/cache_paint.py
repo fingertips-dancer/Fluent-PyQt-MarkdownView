@@ -168,7 +168,9 @@ class CachePaint(AbstructCachePaint):
                     continue
                 return p
 
-    def cachePxiamp(self) -> t.Dict[MarkdownASTBase, QPixmap]:
+    def cachePxiamp(self,ast=None) -> t.Dict[MarkdownASTBase, QPixmap] or QPixmap:
+        if ast:
+            return self._cachePxiamp[ast]
         return self._cachePxiamp
 
     def height(self) -> int:
