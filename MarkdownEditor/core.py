@@ -97,7 +97,7 @@ class MarkdownEdit(QTextEdit):
 
     def save(self, path):
         text = self.__document.toMarkdown()
-        print(self.__document.markdownAst.summary())
+        print(self.__document.ast().summary())
         with open(path, "w") as f:
             f.write(text)
 

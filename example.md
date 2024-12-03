@@ -24,3 +24,11 @@ $$
     - 子列表3
         - 子子孙孙不穷亏也
             1. 还来
+
+```angular2html
+<ims>
+```
+
+```python
+view = MarkdownEditor()
+```

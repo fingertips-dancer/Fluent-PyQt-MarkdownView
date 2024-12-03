@@ -45,7 +45,6 @@ class ImageRender():
 
         parser = MathTextParser('path')
         width, height, depth, _, _ = parser.parse(s, dpi=72, prop=prop)
-        print(width, height)
         fig = figure.Figure(figsize=(width / 72.0, height / 72.0))
         fig.text(0, depth / height, s, fontproperties=prop, color=color)
         fig.savefig(filename_or_obj, dpi=dpi, format=format)
@@ -124,6 +123,7 @@ def renderText(tp: TextParagraph, data: t.Any, ast: MarkdownASTBase, painter: QP
     fm, text = painter.fontMetrics(), data
     rep = QPointF(0, tp.lineHeight() - fm.descent())
     for char in text:
+
         char_width = fm.width(char)  # 获取文本宽度,高度
         tp.addCursorBase(tp.paintPoint() + QPointF(0, 0))
         # return line

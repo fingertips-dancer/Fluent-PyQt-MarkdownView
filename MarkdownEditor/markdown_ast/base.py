@@ -72,20 +72,19 @@ class MarkdownASTBase():
 
         # attr
         if len(self.attrs) != 0:
-            attrs = ast.pop("attrs")
+            attrs = ast.pop("attrs",{})
             for a in self.attrs:
                 try:
                     setattr(self, a, attrs.pop(a))
                 except KeyError as e:
                     if not hasattr(self,a):
                        raise Exception(f"属性<{a}>没有默认参数, 必须设置")
-
                 except Exception as e:
                     raise e
 
             assert len(attrs) == 0, f"{self} attrs解析未完成, {[(key,attrs[key]) for key in attrs.keys()]}"
         else:
-            assert "attrs" not in ast, f"{self} has attrs: {[key for key in ast['attrs'].keys()]}"
+            assert "attrs" not in ast, f"{self} has attrs: {[(key,ast['attrs'][key]) for key in ast['attrs'].keys()]}"
 
         assert len(ast) == 0, f"{self} 解析未完成,{[key for key in ast.keys()]}"
 

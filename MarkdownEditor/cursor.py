@@ -1,6 +1,6 @@
 import typing as t
 
-from PyQt5.QtCore import QPointF, QRectF
+from PyQt5.QtCore import QPointF
 
 from .abstruct import AbstructCursor, AbstractMarkDownDocument
 from .cache_paint import CachePaint
@@ -140,6 +140,10 @@ class MarkdownCursor(AbstructCursor):
 
     def swapSelectionContent(self, text):
         """ 替换选中 """
+        # 如果是在末端添加 “ ”
+        # 需要删除,因为markdown 不支持
+        if len(self.ast().toMarkdown()) == self.pos() + 1:
+            text = text.rstrip()
         start_ast, start_pos, end_ast, end_pos = self.selectedASTs()
         self.__swap(start_ast=start_ast, start_pos=start_pos, end_ast=end_ast, end_pos=end_pos, text=text)
         self.setSelectMode(self.SELECT_MODE_SINGLE)  # 重新设置状态
@@ -180,7 +184,6 @@ class MarkdownCursor(AbstructCursor):
                         self.setPos(posible_pos)
                         break
                 else:
-                    print(asts.toMarkdown())
                     raise Exception(asts)
 
     def __moveToPos(self, pos: QPointF):
@@ -194,14 +197,14 @@ class MarkdownCursor(AbstructCursor):
                     break
                 y -= self._cachePaint.cachePxiamp()[ast].height()
             else:
-                return # 没有
+                return  # 没有
         else:
             for ast in self.rootAst().children[:self.rootAst().index(ast=self.ast())][::-1]:
                 y += self._cachePaint.cachePxiamp()[ast].height()
                 if 0 <= y:
                     break
             else:
-                return # 没有
+                return  # 没有
         bs, t = self._cachePaint.cursorPluginBases(ast=ast), 0
         for bi, b in enumerate(bs):
             if b.y() <= y <= b.y() + self._cachePaint.lineHeight(ast, bi):

@@ -3,7 +3,7 @@ from .blank_line import BlankLine
 from .block_text import BlockText
 from .block_text import BlockText
 from .blockcode import BlockCode
-from .blockcode import BlockCode
+from .blockcode import BlockCode,InlineHtml
 from .header import Header
 from .image import Image
 from .link import Link

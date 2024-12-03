@@ -5,7 +5,7 @@ from .markdown_ast import MarkdownAstRoot
 class MarkDownDocument(AbstractMarkDownDocument):
     def __init__(self):
         super(MarkDownDocument, self).__init__()
-        self.markdownAst: MarkdownAstRoot
+        self.__markdownAst: MarkdownAstRoot
 
     def setMarkdown(self, markdown: str, **kwargs) -> None:
         self._text = markdown
@@ -14,7 +14,7 @@ class MarkDownDocument(AbstractMarkDownDocument):
         print(self.__markdownAst.summary())
 
     def toMarkdown(self) -> str:
-        return self.markdownAst.toMarkdown()
+        return self.__markdownAst.toMarkdown()
 
     def ast(self) -> MarkdownAstRoot:
         return self.__markdownAst

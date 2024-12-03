@@ -1,7 +1,8 @@
 from ..base import MarkdownASTBase
-from ...component import MarkdownStyle
-from ...abstruct import AbstructCursor
 from ...abstruct import AbstructCachePaint
+from ...abstruct import AbstructCursor
+from ...abstruct import AbstructTextParagraph as ATP
+from ...component import MarkdownStyle
 
 
 @MarkdownASTBase.registerAst("block_code")
@@ -9,8 +10,57 @@ class BlockCode(MarkdownASTBase):
     type: str
     raw: str
     style: str
-    propertys = ["type", "raw", "style"]
+    info: str = ""
+    marker: str
+    propertys = ["type", "raw", "style", "marker"]
+    attrs = ['info']
 
     def render(self, ht: AbstructCachePaint, style: MarkdownStyle, cursor: AbstructCursor = None):
-        for c in self.children:
-            c.render(ht, style=style, cursor=cursor)
+        isShowHide = False if cursor is None else cursor.isIn(ast=self)
+        # 2. 添加缩进
+        ht.painter().setFont(style.hintFont(ht.painter().font(), ast="block_math"))
+        ht.setNowParagraphIndentation(indentation=style.hintIndentation(ast="block_math"))
+        ht.setNowParagraphBackgroundColor(color=style.hintBackgroundColor(ast="block_math"))
+        ht.setNowParagraphBackgroundRadius(radius=style.hintBackgroundRadius(ast="block_math"))
+        if isShowHide:
+            # ```self.info\n
+            # self.raw + \n
+            # ```
+            ht.renderContent(func=ATP.Render_Text, data=self.toMarkdown(), ast=self)
+        else:
+            ht.renderContent(func=ATP.Render_HideText, data=self.marker + self.info + "\n", ast=self)
+            ht.renderContent(func=ATP.Render_Text, data=self.raw, ast=self)
+            ht.renderContent(func=ATP.Render_Text, data=self.marker, ast=self)
+        ht.newParagraph()
+
+    def toMarkdown(self) -> str:
+        return self.marker + self.info + "\n" + self.raw + self.marker + "\n"
+
+
+@MarkdownASTBase.registerAst("inline_html")
+class InlineHtml(MarkdownASTBase):
+    type: str
+    raw: str
+    propertys = ["type", "raw"]
+
+    def render(self, ht: AbstructCachePaint, style: MarkdownStyle, cursor: AbstructCursor = None):
+        isShowHide = False if cursor is None else cursor.isIn(ast=self)
+        # 2. 添加缩进
+        ht.painter().setFont(style.hintFont(ht.painter().font(), ast="block_math"))
+        ht.setNowParagraphIndentation(indentation=style.hintIndentation(ast="block_math"))
+        ht.setNowParagraphBackgroundColor(color=style.hintBackgroundColor(ast="block_math"))
+        ht.setNowParagraphBackgroundRadius(radius=style.hintBackgroundRadius(ast="block_math"))
+        if isShowHide:
+            # ```self.info\n
+            # self.raw + \n
+            # ```
+            ht.renderContent(func=ATP.Render_Text, data=self.toMarkdown(), ast=self)
+        else:
+            ht.renderContent(func=ATP.Render_Text, data=self.toMarkdown(), ast=self)
+            # ht.renderContent(func=ATP.Render_HideText, data=self.marker + self.info + "\n", ast=self)
+            # ht.renderContent(func=ATP.Render_Text, data=self.raw, ast=self)
+            # ht.renderContent(func=ATP.Render_Text, data=self.marker, ast=self)
+        ht.newParagraph()
+
+    def toMarkdown(self) -> str:
+        return self.raw + "\n"
