@@ -180,6 +180,7 @@ class MarkdownCursor(AbstructCursor):
                         self.setPos(posible_pos)
                         break
                 else:
+                    print(asts.toMarkdown())
                     raise Exception(asts)
 
     def __moveToPos(self, pos: QPointF):
@@ -218,15 +219,6 @@ class MarkdownCursor(AbstructCursor):
                     self.setPos(bi)
             elif b.y() > y:
                 return
-
-    def rect(self) -> QRectF:
-        parent = self.parent()
-        if len(parent.textParagraphs()) != 0:
-            ps = [p for p in parent.textParagraphs() if p.ast() is self.ast()]
-            all_bases = []
-            for p in ps: all_bases += p.cursorBases()
-            return QRectF(all_bases[self.pos()], all_bases[self.pos()] + QPointF(1, p.lineHeight()))
-        return QRectF(0, 0, 1, 1)
 
     def ast(self) -> MarkdownASTBase:
         return super(MarkdownCursor, self).ast()

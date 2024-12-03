@@ -2,7 +2,7 @@ import time
 import typing as t
 
 from PyQt5.QtCore import Qt, QPointF, QRect, QMargins, QRectF, QSizeF
-from PyQt5.QtGui import QFontMetrics
+from PyQt5.QtGui import QFontMetrics,QColor
 from PyQt5.QtGui import QPainter, QPaintEvent, QMouseEvent, QKeyEvent, QInputMethodEvent, QKeySequence, QPixmap
 from PyQt5.QtWidgets import QTextEdit, QApplication, QAction
 from qfluentwidgets import FluentIcon as FIF
@@ -12,7 +12,7 @@ from qfluentwidgets import ThemeColor
 
 from . import render_function
 from .cache_paint import CachePaint
-from .component import MarkdownStyle
+from .component import MarkdownStyle, PreEdit
 from .cursor import MarkdownCursor
 from .document import MarkDownDocument
 
@@ -63,8 +63,8 @@ class MarkdownEdit(QTextEdit):
         self._cursor.showCursorShaderTimer.timeout.connect(self.viewport().update)
         # ast render pos
         self._ast_render_pos = {}
-        # pre edit
-        self.__preeditText = ""
+        # pre edit and cursor in this
+        self._preEdit = PreEdit(self)
         # pre edit
         self.__style = MarkdownStyle()
 
@@ -127,8 +127,9 @@ class MarkdownEdit(QTextEdit):
 
     def paintEvent(self, event: QPaintEvent) -> None:
         # super(MarkdownEdit, self).paintEvent(event)
-        st = time.time()
 
+        st = time.time()
+        # 1. draw rect
         rect = self.viewport().geometry()
         rect.moveTo(0, self.verticalScrollBar().value())
 
@@ -144,16 +145,7 @@ class MarkdownEdit(QTextEdit):
             painter.drawPixmap(0, y, pm)
             y += pm.height()
 
-        self._cachePaint.setPainter(painter=painter)
-        # self._cachePaint.renderCursor(cursor=self.cursor())
-
-        # paint cursor
-        if self.cursor().isShowCursorShader():
-            lineHeight = self._cachePaint.lineHeight(ast=self.cursor().ast(), pos=self.cursor().pos())
-            pulginBasePos = self._cachePaint.cursorPluginBases(ast=self.cursor().ast(), pos=self.cursor().pos())
-            pulginBasePos = pulginBasePos + QPointF(0, self._ast_render_pos[self.cursor().ast()])
-            painter.drawLine(pulginBasePos, QPointF(pulginBasePos.x(), pulginBasePos.y() + lineHeight))
-        # paint select content
+        # 3. paint select content
         start_ast, start_pos, end_ast, end_pos = self.cursor().selectedASTs()
         if not (start_ast is end_ast and start_pos == end_pos):  # 不在原地
             color = ThemeColor.PRIMARY.color()
@@ -181,15 +173,36 @@ class MarkdownEdit(QTextEdit):
                     lineHeight = self._cachePaint.lineHeight(ast=ast, pos=i + _si)
                     painter.drawRoundedRect(QRectF(QPointF(rect_x, b.y() + self._ast_render_pos[ast]),
                                                    QSizeF(nb.x() - rect_x, lineHeight)), radius, radius)
-        if self.__preeditText != "":
+
+        # 4. paint predit
+        lineHeight = self._cachePaint.lineHeight(ast=self.cursor().ast(), pos=self.cursor().pos())
+        pulginBasePos = self._cachePaint.cursorPluginBases(ast=self.cursor().ast(), pos=self.cursor().pos())
+        pulginBasePos = pulginBasePos + QPointF(0, self._ast_render_pos[self.cursor().ast()])
+        if self._preEdit.preeditText() != "":
             font = self.__style.hintFont(font=painter.font(), ast="paragraph")
+            font.setPixelSize(lineHeight)
             fm = QFontMetrics(font)
-            # rect = fm.boundingRect(text=self.__preeditText)
             painter.setFont(font)
-            pos = self._cachePaint.cursorPluginBases(ast=self.cursor().ast(), pos=self.cursor().pos())
-            lineHeight = self._cachePaint.lineHeight(ast=self.cursor().ast(), pos=self.cursor().pos())
-            pos = pos + QPointF(0, self._ast_render_pos[self.cursor().ast()] + lineHeight - fm.descent())  # <-- 考虑偏移
-            painter.drawText(pos, self.__preeditText)
+            painter.drawText(QPointF(pulginBasePos.x(), pulginBasePos.y() + lineHeight - fm.descent()),
+                             self._preEdit.preeditText())
+            # draw preedit rect
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(QColor(23,23,23,15))
+            rect = fm.boundingRect(self._preEdit.preeditText())
+            rect.moveTo(pulginBasePos.toPoint())
+            painter.drawRoundedRect(rect, 5, 5)
+
+        # 5.paint cursor
+        if self.cursor().isShowCursorShader():
+            if self._preEdit.preeditText() == "":
+                # paint cursor
+                painter.drawLine(pulginBasePos, QPointF(pulginBasePos.x(), pulginBasePos.y() + lineHeight))
+            else:
+                # paint cursor in predit
+                w = fm.width(self._preEdit.preeditText()[:self._preEdit.cursorPos()])
+                pulginBasePos = pulginBasePos + QPointF(w, 0)
+                painter.drawLine(pulginBasePos,
+                                 QPointF(pulginBasePos.x(), pulginBasePos.y() + lineHeight))
 
         painter.end()
         # print("t", time.time() - st)
@@ -270,9 +283,6 @@ class MarkdownEdit(QTextEdit):
         commitString = event.commitString()
         if commitString != "":
             self.cursor().add(event.commitString())
-            self.__preeditText = ""
-        else:
-            self.__preeditText = event.preeditString()  # 获取未最终确定的输入内容
         self.renderMarkdownToCache()
         self.viewport().update()
 
@@ -281,11 +291,14 @@ class MarkdownEdit(QTextEdit):
         if property == Qt.ImCursorRectangle:
             # 返回输入法候选框的位置
             pos = self._cachePaint.cursorPluginBases(ast=self.cursor().ast(), pos=self.cursor().pos())
-            pos = pos + QPointF(0,
-                                self._ast_render_pos[self.cursor().ast()] + \
-                                self._cachePaint.lineHeight(ast=self.cursor().ast(), pos=self.cursor().pos()))
+            pos = pos + QPointF(0, self._ast_render_pos[self.cursor().ast()])
+            h = self._cachePaint.lineHeight(ast=self.cursor().ast(), pos=self.cursor().pos())
             # 在光标下方显示候选框
-            return QRect(pos.toPoint(), QSizeF(pos.x(), 1).toSize())  # 100 是候选框的高度
+            return QRect(pos.toPoint(), QSizeF(pos.x(), h).toSize())  # 100 是候选框的高度
+        elif property == Qt.ImCursorPosition:
+            return 0
+        elif property == Qt.ImhHiddenText:
+            return True
         self.renderMarkdownToCache()
         return super().inputMethodQuery(property)
 
