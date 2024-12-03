@@ -103,7 +103,7 @@ class MarkdownEdit(QTextEdit):
 
     def pasteFromClipboard(self):
         """ paste form clipboard """
-        clipboard, cursor = QApplication.clipboard(), self.document().cursor()
+        clipboard, cursor = QApplication.clipboard(), self.cursor()
         cursor.swapSelectionContent(text=str(clipboard.text()))
         self.update()
 
@@ -111,7 +111,7 @@ class MarkdownEdit(QTextEdit):
         """ copy to clipboard """
         # 设置剪贴板文本
         clipboard = QApplication.clipboard()
-        start_ast, start_pos, end_ast, end_pos = self.document().cursor().selectedASTs()
+        start_ast, start_pos, end_ast, end_pos = self.cursor().selectedASTs()
         start_idx = self.document().ast().index(start_ast)
         # get copy text
         copy_text = ""
@@ -135,7 +135,7 @@ class MarkdownEdit(QTextEdit):
 
         # 2. 从缓存中获取图片绘制
         # 2. 不要viewport内的跳过
-        y = 0
+        y = self._margins.top()
         painter = QPainter(self.viewport())
         painter.translate(-rect.x(), -rect.y())
         cachePxiamp = self._cachePaint.cachePxiamp()

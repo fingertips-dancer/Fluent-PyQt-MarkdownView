@@ -1,10 +1,11 @@
 import io
+import os
 import typing as t
 
 import matplotlib.font_manager as mfm
 from PyQt5.QtCore import QPointF
 from PyQt5.QtCore import Qt, QByteArray, QRectF, QSizeF
-from PyQt5.QtGui import QPainter, QFontMetrics, QImage
+from PyQt5.QtGui import QPainter, QFontMetrics, QImage, QColor
 from PyQt5.QtSvg import QSvgRenderer
 from matplotlib.mathtext import MathTextParser
 
@@ -74,7 +75,11 @@ class ImageRender():
     @classmethod
     def renderImage(cls, url: str) -> QImage:
         if url not in cls.imagePool:
-            cls.imagePool[url] = QImage(url)
+            # 如果不存在
+            if os.path.exists(url):
+                cls.imagePool[url] = QImage(url)
+            else:
+                cls.imagePool[url] = None
         return cls.imagePool[url]
 
 
@@ -196,13 +201,29 @@ def renderImage(tp: TextParagraph, data: str, ast: MarkdownASTBase, painter: QPa
     if tp.margins().left() != tp.paintPoint().x():
         tp.setPaintPoint(QPointF(float(tp.margins().left()),
                                  float(tp.paintPoint().y() + tp.lineHeight() + tp.inPragraphReutrnSpace())))
-
-    # reszie
     width = tp.viewWdith() - tp.margins().left() - tp.margins().right()
-    image = image.scaled(int(width), int(image.height() / image.width() * width), Qt.KeepAspectRatio)
     p = QPointF(tp.margins().left(), tp.paintPoint().y()).toPoint()
-    painter.drawImage(p, image)
-    tp.setPaintPoint(QPointF(tp.margins().left(), tp.paintPoint().y() + image.height()))
+
+    # the image is not exists
+    if image is None:
+        text = "😡没有图片呀!"
+        fm = painter.fontMetrics()
+        rect = fm.boundingRect(text)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QColor(225, 0, 0, 75))
+        img_size = QSizeF(width, rect.height() + 2 * tp.inPragraphReutrnSpace())
+        painter.drawRoundedRect(QRectF(p, img_size), 5, 5)
+        painter.setPen(QColor(255, 255, 255, 255))
+        textP = QPointF((img_size.width() - rect.width()) / 2,
+                        (p.y() + (img_size.height() + rect.height()) / 2 - fm.descent()))
+        painter.drawText(textP, text)
+        nextP = QPointF(tp.margins().left(), tp.paintPoint().y() + img_size.height())
+    else:
+        # reszie
+        image = image.scaled(int(width), int(image.height() / image.width() * width), Qt.KeepAspectRatio)
+        painter.drawImage(p, image)
+        nextP = QPointF(tp.margins().left(), tp.paintPoint().y() + image.height())
+    tp.setPaintPoint(nextP)
 
 
 @TextParagraph.registerRenderFunction(TextParagraph.Render_InlineLatexImage)
