@@ -12,7 +12,7 @@ pointsize = "pointsize"
 class MarkdownStyle():
     defaultStyle = {
         default: {pointsize: 20, brush: Qt.NoBrush, pen: Qt.NoPen},
-        "header":{}
+        "header": {}
     }
     fontType = 'Arial'
     headerSize = [36, 34, 32, 30, 28, 26]
@@ -31,7 +31,7 @@ class MarkdownStyle():
 
     def hintFont(self, font: QFont, ast: str, **kwargs):
         if ast == "header":
-            font.setPointSize([36, 34, 32, 30, 28, 26][kwargs["level"]])
+            font.setPointSize([36, 34, 32, 30, 28, 26][kwargs["level"] - 1])
             font.setBold(False)
         elif ast == "paragraph":
             font.setPointSize(20)

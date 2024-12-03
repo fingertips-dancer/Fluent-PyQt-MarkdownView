@@ -92,6 +92,7 @@ def renderBlankLine(tp: TextParagraph, data: t.Any, ast: MarkdownASTBase, painte
 
 @TextParagraph.registerRenderFunction(TextParagraph.Render_SoftBreak)
 def renderSoftBreak(tp: TextParagraph, data: t.Any, ast: MarkdownASTBase, painter: QPainter):
+    """ render a softbreak (='\n')"""
     fm = QFontMetrics(painter.font())
     tp.addCursorBase(tp.paintPoint() + QPointF(0, 0))
     # paint pos

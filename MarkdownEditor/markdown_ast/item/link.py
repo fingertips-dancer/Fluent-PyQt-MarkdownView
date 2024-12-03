@@ -4,7 +4,7 @@ from ..base import MarkdownASTBase
 from ...component import MarkdownStyle
 from ...abstruct import AbstructCursor
 from ...abstruct import AbstructCachePaint
-
+from ...abstruct import AbstructTextParagraph as ATP
 
 @MarkdownASTBase.registerAst("link")
 class Link(MarkdownASTBase):
@@ -15,16 +15,14 @@ class Link(MarkdownASTBase):
     attrs = ["url"]
 
     def toMarkdown(self) -> str:
-        p = self.url.replace('%5C', '\\')
-        return rf'![' + ''.join(c.toMarkdown() for c in self.children) + ']' + rf"({p})"
+        return rf'<' + ''.join(c.toMarkdown() for c in self.children) + '>'
 
     def render(self, ht: AbstructCachePaint, style: MarkdownStyle, cursor: AbstructCursor = None):
-        oriP = ht.painter().pen()
         isShowHide = False if cursor is None else cursor.isIn(ast=self)
-        ht.text(text=self.toMarkdown(), ast=self)
-
-    def segment(self) -> t.List[t.Tuple['MarkdownASTBase', int]]:
-        s = []
-        for c in self.children:
-            s += c.segment()
-        return [(self, len(self.toMarkdown()))]
+        if isShowHide:
+            ht.renderContent(func=ATP.Render_Text, data=self.toMarkdown(), ast=self)
+        else:
+            ht.renderContent(func=ATP.Render_HideText, data='<', ast=self)
+            ht.renderContent(func=ATP.Render_Text, data=''.join(c.toMarkdown() for c in self.children), ast=self)
+            ht.renderContent(func=ATP.Render_HideText, data='>', ast=self)
+        # ht.text(text=self.toMarkdown(), ast=self)
