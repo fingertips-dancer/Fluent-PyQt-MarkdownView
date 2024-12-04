@@ -18,12 +18,15 @@ class BlockMath(MarkdownASTBase):
 
     def render(self, ht: AbstructCachePaint, style: MarkdownStyle, cursor: AbstructCursor = None):
         isShowHide = False if cursor is None else cursor.isIn(ast=self)
+        ph = ht.nowParagraph()
         ht.painter().setFont(style.hintFont(ht.painter().font(), ast="block_math"))
         if isShowHide:
             # 2. 添加缩进
-            ht.setNowParagraphIndentation(indentation=style.hintIndentation(ast="block_math"))
-            ht.setNowParagraphBackgroundColor(color=style.hintBackgroundColor(ast="block_math"))
-            ht.setNowParagraphBackgroundRadius(radius=style.hintBackgroundRadius(ast="block_math"))
+            ph.setBackgroundEnable(True)
+            ph.setBackgroundMargins(*style.hintBackgroundMargins(ast="block_math"))
+            ph.setIndentation(indentation=style.hintIndentation(ast="block_math"))
+            ph.setBackgroundColor(color=style.hintBackgroundColor(ast="block_math"))
+            ph.setBackgroundRadius(radius=style.hintBackgroundRadius(ast="block_math"))
             # $$\n
             # self.raw + \n
             # $$\n

@@ -23,8 +23,7 @@ class Header(MarkdownASTBase):
         return "#" * self.level + " " + "".join([c.toMarkdown() for c in self.children]) + "\n"
 
     def render(self, ht: AbstructCachePaint, style: MarkdownStyle, cursor: AbstructCursor = None):
-        font = style.hintFont(font=ht.painter().font(), ast="header", level=self.level)
-        ht.painter().setFont(font)
+        ht.painter().setFont(style.hintFont(font=ht.painter().font(), ast="header", level=self.level))
 
         if cursor and cursor.ast() is self or cursor.ast().isChild(self):  # 光标
             ht.painter().setPen(style.hintPen(pen=ht.painter().pen(), ast="header", level=self.level, hide=True))

@@ -19,9 +19,12 @@ class BlockCode(MarkdownASTBase):
         isShowHide = False if cursor is None else cursor.isIn(ast=self)
         # 2. 添加缩进
         ht.painter().setFont(style.hintFont(ht.painter().font(), ast="block_math"))
-        ht.setNowParagraphIndentation(indentation=style.hintIndentation(ast="block_math"))
-        ht.setNowParagraphBackgroundColor(color=style.hintBackgroundColor(ast="block_math"))
-        ht.setNowParagraphBackgroundRadius(radius=style.hintBackgroundRadius(ast="block_math"))
+        ph = ht.nowParagraph()
+        ph.setBackgroundEnable(True)
+        ph.setBackgroundMargins(*style.hintBackgroundMargins(ast='block_math'))
+        ph.setIndentation(indentation=style.hintIndentation(ast="block_math"))
+        ph.setBackgroundColor(color=style.hintBackgroundColor(ast="block_math"))
+        ph.setBackgroundRadius(radius=style.hintBackgroundRadius(ast="block_math"))
         if isShowHide:
             # ```self.info\n
             # self.raw + \n

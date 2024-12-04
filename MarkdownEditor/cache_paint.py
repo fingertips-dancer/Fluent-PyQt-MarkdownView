@@ -25,7 +25,7 @@ def paintMemory(func):
 
 class CachePaint(AbstructCachePaint):
     def __init__(self, parent):
-
+        super(CachePaint, self).__init__(parent)
         # 垂直距离
         self._parent: AbstractMarkDownDocument = parent
         self._verticalSpace: int = 10
@@ -46,17 +46,6 @@ class CachePaint(AbstructCachePaint):
         self._cacheCursorPluginBases: t.Dict[MarkdownASTBase, t.List[QPointF]] = {}
         # cache TextParagraph
         self._cacheTextParagraphs: t.Dict[MarkdownASTBase, t.List[TextParagraph]] = {}
-
-    def setNowParagraphBackgroundColor(self, color: QColor):
-        """ 设置当前段落背景颜色 """
-        self._paragraphs[-1].setBackgroundColor(color=color)
-
-    def setNowParagraphBackgroundRadius(self, radius: float or int):
-        """ 设置当前段落背景半径 """
-        self._paragraphs[-1].setBackgroundRadius(radius=radius)
-
-    def setNowParagraphIndentation(self, indentation):
-        self._paragraphs[-1].setIndentation(indentation=indentation)
 
     def renderContent(self, func, ast: MarkdownASTBase, data=None):
         self._paragraphs[-1].pullRenderCache(func=func, data=data, painter=self.painter(), ast=ast)
@@ -155,7 +144,7 @@ class CachePaint(AbstructCachePaint):
     def painter(self) -> QPainter:
         return self._painter
 
-    def textParagraphs(self, ast=None,pos:int=None) -> t.List[TextParagraph] or TextParagraph:
+    def textParagraphs(self, ast=None, pos: int = None) -> t.List[TextParagraph] or TextParagraph:
         if ast is None:
             return self._paragraphs
         elif pos is None:
@@ -168,7 +157,7 @@ class CachePaint(AbstructCachePaint):
                     continue
                 return p
 
-    def cachePxiamp(self,ast=None) -> t.Dict[MarkdownASTBase, QPixmap] or QPixmap:
+    def cachePxiamp(self, ast=None) -> t.Dict[MarkdownASTBase, QPixmap] or QPixmap:
         if ast:
             return self._cachePxiamp[ast]
         return self._cachePxiamp
@@ -190,7 +179,7 @@ class CachePaint(AbstructCachePaint):
                 continue
             return p.lineHeight()
         else:
-            raise Exception(sum(len(p.cursorBases()) for p in self.textParagraphs(ast)),"but",pos)
+            raise Exception(sum(len(p.cursorBases()) for p in self.textParagraphs(ast)), "but", pos)
 
     def indentation(self, ast, pos: int) -> int:
         ps = self.textParagraphs(ast=ast)
@@ -199,4 +188,3 @@ class CachePaint(AbstructCachePaint):
                 pos -= len(p.cursorBases())
                 continue
             return p.indentation()
-

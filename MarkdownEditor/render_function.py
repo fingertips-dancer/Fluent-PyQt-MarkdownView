@@ -154,7 +154,7 @@ def renderSerialNumber(tp: TextParagraph, data: t.Union[int, str], ast: Markdown
     if isinstance(data, int):
         text = f"{data}."
         fm = QFontMetrics(painter.font())
-        painter.drawText(tp.paintPoint() + QPointF(-fm.width(text), tp.lineHeight()), text)
+        painter.drawText(tp.paintPoint() + QPointF(-fm.width(text), tp.lineHeight() - fm.descent()), text)
 
 
 @TextParagraph.registerRenderFunction(TextParagraph.Render_BlockLatexImage)

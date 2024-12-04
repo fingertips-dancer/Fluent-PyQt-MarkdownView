@@ -1,3 +1,4 @@
+import time
 import typing as t
 
 from PyQt5.QtCore import QPointF
@@ -98,7 +99,6 @@ class MarkdownCursor(AbstructCursor):
         return asts, insert_index
 
     def move(self, flag, pos: QPointF = None):
-        parent = self.parent()
         if flag == self.MOVE_FELT:
             self.setPos(self.pos() - 1)
 
@@ -205,6 +205,7 @@ class MarkdownCursor(AbstructCursor):
                     break
             else:
                 return  # 没有
+
         bs, t = self._cachePaint.cursorPluginBases(ast=ast), 0
         for bi, b in enumerate(bs):
             if b.y() <= y <= b.y() + self._cachePaint.lineHeight(ast, bi):

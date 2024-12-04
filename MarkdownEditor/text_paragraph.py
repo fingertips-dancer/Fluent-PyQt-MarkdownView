@@ -1,7 +1,7 @@
 import typing as t
 
 from PyQt5.QtCore import QPointF
-from PyQt5.QtCore import Qt, QRectF
+from PyQt5.QtCore import Qt, QRectF, QMargins
 from PyQt5.QtGui import QPainter, QFontMetrics, QPixmap, QColor
 
 from .abstruct import AbstructTextParagraph
@@ -50,17 +50,25 @@ class TextParagraph(AbstructTextParagraph):
             method(self, data=data, ast=ast, painter=painter)
 
         # 绘制背景
-        if self.backgroundColor().alpha() != 0:
+        if self.backgroundEnable():
+            pixmap.fill(QColor(0, 0, 0, 0))  # 使用完全透明的颜色
+
+            self.clearAllcursorBases()
             painter.setPen(Qt.NoPen)
             painter.setBrush(self.backgroundColor())
             rect = QRectF(self.margins().left() + self.indentation(),
                           sPos.y(),
                           self.viewWdith() - self.margins().left() - self.margins().right() - self.indentation(),
-                          self.paintPoint().y() - sPos.y())
+                          self.paintPoint().y() - sPos.y() + self.backgroundMargins().top() + self.backgroundMargins().bottom())
             painter.drawRoundedRect(rect, self.backgroundRaidus(), self.backgroundRaidus())
 
             # repaint
-            self.setPaintPoint(sPos)
+            # consider the margins
+            self.setIndentation(indentation=self.indentation() + self.backgroundMargins().left())
+            self.setMargins(margins=QMargins(self.margins().left(), self.margins().top(),
+                                             self.margins().right() + self.backgroundMargins().right(),
+                                             self.margins().right()))
+            self.setPaintPoint(sPos + QPointF(self.backgroundMargins().left(), self.backgroundMargins().top()))
             self._cursor_bases = []
             for method, data, ast, font, brush, pen in self._cache:
                 painter.setPen(pen)

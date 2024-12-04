@@ -65,7 +65,8 @@ class List(MarkdownASTBase):
             ht.newParagraph()
 
         for i, c in enumerate(self.children):
-            ht.setNowParagraphIndentation(indentation=QFontMetrics(font).width(" " * 3 * self.depth + f"{i + 1}."))
+            ph = ht.nowParagraph()
+            ph.setIndentation(indentation=QFontMetrics(font).width(" " * 3 * self.depth + f"{i + 1}."))
             ht.renderContent(func=AbstructTextParagraph.Render_SerialNumber, data=i + 1, ast=self)
             ht.renderContent(func=AbstructTextParagraph.Render_HideText,
                              data="    " * self.depth + (rf"{i + 1}. " if self.ordered else "- "), ast=self)

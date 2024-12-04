@@ -10,6 +10,8 @@ ___
 
 #### 文本
 这是普通的文本 *斜体* ***强调***
+段落内换行 
+换行
 
 #### 这是math块
 $$
@@ -31,8 +33,7 @@ $$
     - 子列表3
         - 子子孙孙不穷亏也
             1. 还来
-
-
+        
 #### 这是代码块html
 ```angular2html
 <ims>
@@ -50,4 +51,4 @@ view.setMarkdown()
 
 #### 这是连接
 <https://github.com/fingertips-dancer/Fluent-PyQt-MarkdownView>
-*[Fluent-PyQt-MarkdownView](https://github.com/fingertips-dancer/Fluent-PyQt-MarkdownView)*
+[Fluent-PyQt-MarkdownView](https://github.com/fingertips-dancer/Fluent-PyQt-MarkdownView)

@@ -1,3 +1,5 @@
+import typing as t
+
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont, QPen, QColor
 
@@ -90,3 +92,7 @@ class MarkdownStyle():
         """ 背景圆角半径 """
         c = 15
         return c
+
+    def hintBackgroundMargins(self, ast: str) -> t.Tuple[int, int, int, int]:
+        if ast == "block_math":
+            return 5, 5, 5, 5

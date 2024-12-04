@@ -19,6 +19,7 @@ class AbstractMarkDownDocument(QTextDocument):
 
     # signal
     heightChanged = pyqtSignal(int)
+
     def __init__(self):
         super(AbstractMarkDownDocument, self).__init__()
         self._text: str = ""
@@ -211,6 +212,12 @@ class AbstructTextParagraph():
         self.__indentation = 0  # 缩进
         self.__backgroundRaidus = 0  # 圆角半径
         self.__backgroundColor = QColor(0, 0, 0, 0)  # 背景颜色
+        self.__backgroundEnable = False  # 使能
+        self.__backgroundMargins = QMargins(0, 0, 0, 0)
+
+    def clearAllcursorBases(self) -> None:
+        """ clear all cursor base"""
+        self.__cursor_bases.clear()
 
     def addCursorBase(self, pos):
         """ add a cursor base"""
@@ -224,7 +231,7 @@ class AbstructTextParagraph():
         """ 段落的高 """
         self.__lineHight = height
 
-    def setAST(self,ast:'MarkdownASTBase'):
+    def setAST(self, ast: 'MarkdownASTBase'):
         """ ast """
         self.__paragraph_ast = ast
 
@@ -259,6 +266,14 @@ class AbstructTextParagraph():
     def setInPragraphReutrnSpace(self, space: int):
         """ 段落内缩进 """
         self.__inPragraphReutrnSpace = space
+
+    def setBackgroundEnable(self, enable: bool):
+        """ 设置背景使能 """
+        self.__backgroundEnable = enable
+
+    def setBackgroundMargins(self, left, up, right, bottom):
+        """ 设置背景使能 """
+        self.__backgroundMargins = QMargins(left, up, right, bottom)
 
     """ property """
 
@@ -314,14 +329,33 @@ class AbstructTextParagraph():
         """ 段落外缩进 """
         return self.__outPragraphReutrnSpace
 
+    def backgroundEnable(self):
+        """ 背景使能 """
+        return self.__backgroundEnable
+
+    def backgroundMargins(self) -> QMargins:
+        return self.__backgroundMargins
+
 
 class AbstructCachePaint():
+    def __init__(self, parent):
+        # 垂直距离
+        self._parent: AbstractMarkDownDocument = parent
+        self._verticalSpace: int = 10
+        self._painter: QPainter = None
+        self._painter_pos: QMargins = None
+        self._margins: QMargins = None
+        self._leftEdge: float = None
+        self._viewWdith: float = None
+        # self._cursor: MarkdownCursor = None
+        self.__mutilMedia = {}
+        self._inPragraphReutrnSpace = 5
+        self._outPragraphReutrnSpace = 5
+        # 显示范围,text item,对应的文本
+        self._paragraphs: t.List[AbstructTextParagraph] = []
+
     def newParagraph(self):
         """ 创建一个新的 Paragraph """
-        raise NotImplementedError
-
-    def nowParagraph(self):
-        """ 当前的 Paragraph """
         raise NotImplementedError
 
     def renderContent(self, func, ast, data=None):
@@ -347,14 +381,6 @@ class AbstructCachePaint():
         """ QPainter """
         raise NotImplementedError
 
-    def setNowParagraphIndentation(self, indentation: float or int):
-        """ 设置当前段落缩进 """
-        raise NotImplementedError
-
-    def setNowParagraphBackgroundColor(self, color: QColor):
-        """ 设置当前段落背景颜色 """
-        raise NotImplementedError
-
-    def setNowParagraphBackgroundRadius(self, radius: float or int):
-        """ 设置当前段落背景半径 """
-        raise NotImplementedError
+    def nowParagraph(self) -> AbstructTextParagraph:
+        """ 当前的 Paragraph """
+        return self._paragraphs[-1]
