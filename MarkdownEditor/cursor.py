@@ -187,7 +187,7 @@ class MarkdownCursor(AbstructCursor):
                     raise Exception(asts)
 
     def __moveToPos(self, pos: QPointF):
-        """ 将光标移动 pos(偏移) """
+        """ 将光标移动 pos(偏移)  """
         # 1. find target ast
         y = pos.y() + self._cachePaint.cursorPluginBases(ast=self.ast(), pos=self.pos()).y()
         x = pos.x() + self._cachePaint.cursorPluginBases(ast=self.ast(), pos=self.pos()).x()
