@@ -1,6 +1,6 @@
 import typing as t
 
-from MarkdownEditor.component.style import MarkdownStyle
+from ..style import MarkdownStyle
 from ..abstruct import AbstructCursor
 from ..abstruct import AbstructCachePaint
 

@@ -3,7 +3,7 @@ import typing as t
 from PyQt5.QtGui import QFontMetrics
 
 from ..base import MarkdownASTBase
-from ...component import MarkdownStyle
+from ...style import MarkdownStyle
 from ...abstruct import AbstructCursor, AbstructCachePaint, AbstructTextParagraph
 
 

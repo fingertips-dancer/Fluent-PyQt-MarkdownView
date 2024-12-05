@@ -95,4 +95,4 @@ class MarkdownStyle():
 
     def hintBackgroundMargins(self, ast: str) -> t.Tuple[int, int, int, int]:
         if ast == "block_math":
-            return 5, 5, 5, 5
+            return 25, 25, 25, 25

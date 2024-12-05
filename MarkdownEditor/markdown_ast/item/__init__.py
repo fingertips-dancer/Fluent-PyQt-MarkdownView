@@ -12,3 +12,5 @@ from .paragraph import Paragraph
 from .softbreak import SoftBreak
 from .text import Text, Strong, Emphasis
 from .block_quote import BlockQuote
+from .block_html import BlockHtml
+from .codespan import CodeSpan

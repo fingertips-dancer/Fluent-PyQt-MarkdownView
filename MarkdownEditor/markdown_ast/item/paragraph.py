@@ -1,7 +1,7 @@
 import typing as t
 
 from ..base import MarkdownASTBase
-from ...component import MarkdownStyle
+from ...style import MarkdownStyle
 from ...abstruct import AbstructCursor
 from ...abstruct import AbstructCachePaint, AbstructTextParagraph
 

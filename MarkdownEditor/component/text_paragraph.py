@@ -1,12 +1,12 @@
 import typing as t
 
 from PyQt5.QtCore import QPointF
-from PyQt5.QtCore import Qt, QRectF, QMargins
+from PyQt5.QtCore import Qt, QRectF
 from PyQt5.QtGui import QPainter, QFontMetrics, QPixmap, QColor
 
-from .abstruct import AbstructTextParagraph
+from ..abstruct import AbstructTextParagraph
 # from .cursor import MarkdownCursor
-from .markdown_ast import MarkdownASTBase, MarkdownAstRoot
+from ..markdown_ast import MarkdownASTBase, MarkdownAstRoot
 
 
 class TextParagraph(AbstructTextParagraph):
@@ -42,7 +42,11 @@ class TextParagraph(AbstructTextParagraph):
         self.setLineHeight(max(QFontMetrics(font).height() for method, data, ast, font, brush, pen in self._cache))
 
         sPos = self.paintPoint() + QPointF(0, 0)
+
         # 1.render
+        if self.backgroundEnable():
+            self.setStartY(self.backgroundMargins().top())
+
         for method, data, ast, font, brush, pen in self._cache:
             painter.setPen(pen)
             painter.setFont(font)
@@ -51,30 +55,17 @@ class TextParagraph(AbstructTextParagraph):
 
         # 绘制背景
         if self.backgroundEnable():
-            pixmap.fill(QColor(0, 0, 0, 0))  # 使用完全透明的颜色
-
-            self.clearAllcursorBases()
+            _pixmap = pixmap.copy(QRectF(0, 0, self.viewWdith(), self.paintPoint().y()).toRect())
+            pixmap.fill(QColor(0, 0, 0, 0))
             painter.setPen(Qt.NoPen)
             painter.setBrush(self.backgroundColor())
-            rect = QRectF(self.margins().left() + self.indentation(),
+            rect = QRectF(self.pageMargins().left() + self.indentation(),
                           sPos.y(),
-                          self.viewWdith() - self.margins().left() - self.margins().right() - self.indentation(),
-                          self.paintPoint().y() - sPos.y() + self.backgroundMargins().top() + self.backgroundMargins().bottom())
+                          self.viewWdith() - self.pageMargins().left() - self.indentation() - self.pageMargins().right(),
+                          self.paintPoint().y() - sPos.y() + self.backgroundMargins().bottom())
             painter.drawRoundedRect(rect, self.backgroundRaidus(), self.backgroundRaidus())
-
-            # repaint
-            # consider the margins
-            self.setIndentation(indentation=self.indentation() + self.backgroundMargins().left())
-            self.setMargins(margins=QMargins(self.margins().left(), self.margins().top(),
-                                             self.margins().right() + self.backgroundMargins().right(),
-                                             self.margins().right()))
-            self.setPaintPoint(sPos + QPointF(self.backgroundMargins().left(), self.backgroundMargins().top()))
-            self._cursor_bases = []
-            for method, data, ast, font, brush, pen in self._cache:
-                painter.setPen(pen)
-                painter.setFont(font)
-                painter.setBrush(brush)
-                method(self, data=data, ast=ast, painter=painter)
+            painter.drawPixmap(0, 0, _pixmap)
+            self.setPaintPoint(rect.bottomLeft())
 
         painter.end()
         pixmap = pixmap.copy(QRectF(0, 0, self.viewWdith(), self.paintPoint().y()).toRect())

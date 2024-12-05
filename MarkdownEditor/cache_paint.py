@@ -8,7 +8,7 @@ from PyQt5.QtGui import QPainter, QImage, QColor, QPixmap
 from .abstruct import AbstractMarkDownDocument
 from .abstruct import AbstructCachePaint
 from .markdown_ast import MarkdownASTBase
-from .text_paragraph import TextParagraph
+from .component import TextParagraph
 
 
 def paintMemory(func):
@@ -73,7 +73,7 @@ class CachePaint(AbstructCachePaint):
         for p in self._paragraphs:
             p.setInPragraphReutrnSpace(self._inPragraphReutrnSpace)
             p.setOutPragraphReutrnSpace(self._outPragraphReutrnSpace)
-            p.setMargins(self._margins)
+            p.setPageMargins(self._margins)
             p.setViewWdith(self._viewWdith)
             # render
             pximap_part = p.render()
@@ -134,12 +134,6 @@ class CachePaint(AbstructCachePaint):
     def setMargins(self, margins):
         self._margins = margins
 
-    def setLeftEdge(self, edge):
-        self._leftEdge = edge
-        # 传递给
-
-    def leftEdge(self) -> float:
-        return self._leftEdge
 
     def painter(self) -> QPainter:
         return self._painter

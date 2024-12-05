@@ -2,7 +2,7 @@ from ..base import MarkdownASTBase
 from ...abstruct import AbstructCachePaint
 from ...abstruct import AbstructCursor
 from ...abstruct import AbstructTextParagraph as ATP
-from ...component import MarkdownStyle
+from ...style import MarkdownStyle
 
 
 @MarkdownASTBase.registerAst("block_code")
@@ -33,7 +33,7 @@ class BlockCode(MarkdownASTBase):
         else:
             ht.renderContent(func=ATP.Render_HideText, data=self.marker + self.info + "\n", ast=self)
             ht.renderContent(func=ATP.Render_Text, data=self.raw, ast=self)
-            ht.renderContent(func=ATP.Render_Text, data=self.marker, ast=self)
+            ht.renderContent(func=ATP.Render_HideText, data=self.marker, ast=self)
         ht.newParagraph()
 
     def toMarkdown(self) -> str:

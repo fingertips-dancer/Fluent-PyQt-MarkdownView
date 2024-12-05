@@ -3,8 +3,8 @@ import typing as t
 
 from PyQt5.QtCore import Qt, QPointF, QRect, QMargins, QRectF, QSizeF
 from PyQt5.QtGui import QFontMetrics, QColor
-from PyQt5.QtGui import QPainter, QPaintEvent, QMouseEvent, QKeyEvent, QInputMethodEvent, QKeySequence, QPixmap
-from PyQt5.QtWidgets import QTextEdit, QAction, QApplication
+from PyQt5.QtGui import QPainter, QPaintEvent, QMouseEvent, QKeyEvent, QInputMethodEvent, QKeySequence
+from PyQt5.QtWidgets import QAction, QApplication, QVBoxLayout, QWidget, QScrollArea, QSpacerItem, QSizePolicy
 from qfluentwidgets import FluentIcon as FIF
 from qfluentwidgets import RoundMenu, Action
 from qfluentwidgets import SmoothScrollDelegate
@@ -12,10 +12,12 @@ from qfluentwidgets import ThemeColor
 
 from . import render_function
 from .cache_paint import CachePaint
-from .component import MarkdownStyle, PreEdit
+from .component import ContentItem
+from .component import PreEdit
 from .cursor import MarkdownCursor
 from .document import MarkDownDocument
 from .markdown_ast import MarkdownASTBase
+from .style import MarkdownStyle
 
 render_function = render_function
 MOVE_MODE = {Qt.Key_Up: MarkdownCursor.MOVE_UP,
@@ -24,7 +26,7 @@ MOVE_MODE = {Qt.Key_Up: MarkdownCursor.MOVE_UP,
              Qt.Key_Right: MarkdownCursor.MOVE_RIGHT}
 
 
-class MarkdownEdit(QTextEdit):
+class MarkdownEdit(QScrollArea):
     special_chars = {
         Qt.Key_1: '!',
         Qt.Key_2: '@',
@@ -49,15 +51,18 @@ class MarkdownEdit(QTextEdit):
 
     def __init__(self):
         super().__init__()
-        self.setAcceptRichText(False)
+        # 允许输入法
+        self.setAttribute(Qt.WA_InputMethodEnabled, True)
+        # self.setAcceptRichText(False)
         self.scrollDelegate = SmoothScrollDelegate(self)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.__document = MarkDownDocument()
 
         self.verticalScrollBar().setMaximum(1024)
         # cache
         self._cachePaint = CachePaint(self)
         # marigin
-        self._margins = QMargins(5, 5, 5, 5)
+        self._margins = QMargins(25, 25, 25, 25)
         # cursor
         self._cursor = MarkdownCursor(self)
         self._cursor._cachePaint = self._cachePaint
@@ -68,6 +73,20 @@ class MarkdownEdit(QTextEdit):
         self._preEdit = PreEdit(self)
         # pre edit
         self.__style = MarkdownStyle()
+        # items
+        self.__contentItems: t.Dict[MarkdownASTBase, ContentItem] = {}
+
+        self.__w = QWidget(self)
+        self.setWidget(self.__w)
+        self.mainLayout = QVBoxLayout(self.__w)
+        self.itemLayout = QVBoxLayout()
+        self.mainLayout.addLayout(self.itemLayout)
+        self.mainLayout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding))
+        self.mainLayout.setContentsMargins(0, 0, 0, 0)
+        self.mainLayout.setSpacing(0)
+        self.setViewportMargins(0, 0, 0, 0)
+        self.setWidgetResizable(True)
+        self.viewport().setStyleSheet("background-color:transparent;")
 
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_menu)
@@ -82,12 +101,22 @@ class MarkdownEdit(QTextEdit):
         self.addAction(self.paste_action)
 
         self.setMarkdown("")
+        self.verticalScrollBar().valueChanged.connect(self.update)
 
     def setMarkdown(self, text: str) -> None:
+
         self.__document.setMarkdown(text)
+
         self.cursor().setAST(self.document().ast().children[0])
         self.cursor().setPos(0)
-        self.renderMarkdownToCache()  # <--- paint
+        self.updateMarkdownItem()
+
+        # for i in range(self.itemLayout.count()):
+        #     self.itemLayout.itemAt(i).widget().deleteLater()
+        # for ast in self.document().ast().children:
+        #     item = ContentItem(self, cachePaint=self._cachePaint, ast=ast)
+        #     self.itemLayout.addWidget(item)
+        #     self.__contentItems[ast] = item
 
     def show_menu(self, pos):
         self.__menu = RoundMenu(self)
@@ -127,7 +156,7 @@ class MarkdownEdit(QTextEdit):
         self.update()
 
     def paintEvent(self, event: QPaintEvent) -> None:
-        # super(MarkdownEdit, self).paintEvent(event)
+        super(MarkdownEdit, self).paintEvent(event)
         st = time.time()
         # 1. draw rect
         rect = self.viewport().geometry()
@@ -135,18 +164,9 @@ class MarkdownEdit(QTextEdit):
 
         # 2. 从缓存中获取图片绘制
         # 2. 不要viewport内的跳过
-        y = self._margins.top()
+        y = 0  # self._margins.top()
         painter = QPainter(self.viewport())
         painter.translate(-rect.x(), -rect.y())
-        cachePxiamp = self._cachePaint.cachePxiamp()
-        for ast in self.document().ast().children:
-            pm = cachePxiamp[ast]
-            self._ast_render_pos[ast] = y
-            # 在显示区域内绘制
-            if y + self.viewport().height() > self.verticalScrollBar().value() or \
-                    self.verticalScrollBar().value() + self.viewport().height() < y:
-                painter.drawPixmap(0, y, pm)
-            y += pm.height()
 
         # 3. paint select content
         start_ast, start_pos, end_ast, end_pos = self.cursor().selectedASTs()
@@ -168,32 +188,37 @@ class MarkdownEdit(QTextEdit):
                 for i, (b, nb) in enumerate(zip(bs[:-1], bs[1:])):
                     if b.y() != nb.y():
                         lineHeight = self._cachePaint.lineHeight(ast=ast, pos=i + _si)
-                        painter.drawRoundedRect(QRectF(QPointF(rect_x, b.y() + self._ast_render_pos[ast]),
+                        painter.drawRoundedRect(QRectF(QPointF(rect_x, b.y() + self.__contentItems[ast].y()),
                                                        QSizeF(b.x() - rect_x, lineHeight)),
                                                 radius, radius)
-                        rect_x = self._cachePaint.indentation(ast, pos=i + _si)
+                        ph = self._cachePaint.textParagraphs(ast=ast, pos=i + _si)
+                        rect_x = ph.indentation() + ph.margins().left()
                 else:
                     lineHeight = self._cachePaint.lineHeight(ast=ast, pos=i + _si)
-                    painter.drawRoundedRect(QRectF(QPointF(rect_x, b.y() + self._ast_render_pos[ast]),
-                                                   QSizeF(nb.x() - rect_x, lineHeight)), radius, radius)
+                    painter.drawRoundedRect(
+                        QRectF(QPointF(rect_x, b.y() + self.__contentItems[ast].y()),
+                               QSizeF(nb.x() - rect_x, lineHeight)), radius, radius)
 
         # 4. paint predit
         lineHeight = self._cachePaint.lineHeight(ast=self.cursor().ast(), pos=self.cursor().pos())
         pulginBasePos = self._cachePaint.cursorPluginBases(ast=self.cursor().ast(), pos=self.cursor().pos())
-        pulginBasePos = pulginBasePos + QPointF(0, self._ast_render_pos[self.cursor().ast()])
+        pulginBasePos = pulginBasePos + QPointF(0, self.__contentItems[self.cursor().ast()].y())
         if self._preEdit.preeditText() != "":
             font = self.__style.hintFont(font=painter.font(), ast="paragraph")
             font.setPixelSize(lineHeight)
             fm = QFontMetrics(font)
-            painter.setFont(font)
-            painter.drawText(QPointF(pulginBasePos.x(), pulginBasePos.y() + lineHeight - fm.descent()),
-                             self._preEdit.preeditText())
+            pen = painter.pen()
             # draw preedit rect
             painter.setPen(Qt.NoPen)
-            painter.setBrush(QColor(23, 23, 23, 15))
+            painter.setOpacity(1)
+            painter.setBrush(QColor(225, 225, 225))
             rect = fm.boundingRect(self._preEdit.preeditText())
             rect.moveTo(pulginBasePos.toPoint())
             painter.drawRoundedRect(rect, 5, 5)
+            painter.setFont(font)
+            painter.setPen(pen)
+            painter.drawText(QPointF(pulginBasePos.x(), pulginBasePos.y() + lineHeight - fm.descent()),
+                             self._preEdit.preeditText())
 
         # 5.paint cursor
         if self.cursor().isShowCursorShader():
@@ -207,50 +232,51 @@ class MarkdownEdit(QTextEdit):
                 painter.drawLine(pulginBasePos,
                                  QPointF(pulginBasePos.x(), pulginBasePos.y() + lineHeight))
 
-        # print("绘制时间",time.time()-st)
+        # print("绘制时间",self.verticalScrollBar().value(),time.time()-st)
 
-    def renderMarkdownToCache(self, asts: t.Union[t.List[MarkdownASTBase], MarkdownASTBase] = None):
+    def updateMarkdownItem(self, asts: t.Union[t.List[MarkdownASTBase], MarkdownASTBase] = None):
         """
         渲染到缓存
         :param asts: 确定重绘的范围,None表示全部
         :return:
         """
-        temp = QPixmap(10, 10)
-        painter = QPainter(temp)
-        # 绘制缓存
-        self._cachePaint.reset()
-        self._cachePaint.setPainter(painter)
-        self._cachePaint.setPaperWidth(self.viewport().width())
-        self._cachePaint.setMargins(self._margins)
-        self._cachePaint.setLeftEdge(self._margins.left())
-        self._cachePaint.newParagraph()  # 重置段落
 
-        # 渲染登记
-        if asts is None:
-            self.document().ast().render(ht=self._cachePaint, style=MarkdownStyle(), cursor=self.cursor())
-        elif isinstance(asts, (list, tuple, set)):
-            for ast in asts:
-                ast.render(ht=self._cachePaint, style=MarkdownStyle(), cursor=self.cursor())
-        else:
-            asts.render(ht=self._cachePaint, style=MarkdownStyle(), cursor=self.cursor())
+        s, e = False, False
+        for i, ast in enumerate(self.document().ast().children):
+            if i + 1 > self.itemLayout.count():
+                _item = ContentItem(parent=self, cachePaint=self._cachePaint, ast=ast)
+                self.itemLayout.insertWidget(i, _item)
+                self.__contentItems[ast] = _item
+                QApplication.instance().processEvents()
+                continue
 
-        painter.end()
-        del temp, painter
-        # 局部更新 不刷新缓存
-        self._cachePaint.render(resetCache=asts is None)
+            item: ContentItem = self.itemLayout.itemAt(i).widget()
+            if item.ast() is ast:
+                if s: break
+            else:
+                self.itemLayout.removeWidget(item)
+                item.deleteLater()
+                _item = ContentItem(parent=self, cachePaint=self._cachePaint, ast=ast)
+                self.itemLayout.insertWidget(i, _item)
+                self.__contentItems[ast] = _item
+        # pop item
+        for i in range(len(self.document().ast().children),
+                       max(self.itemLayout.count(), len(self.document().ast().children))):
+            QApplication.instance().processEvents()
+            self.itemLayout.itemAt(i).widget().deleteLater()
 
-        # 计算需要的 verticalScroll
-        self.verticalScrollBar().setMaximum(
-            int(max(self.viewport().height(), self._cachePaint.height() - self.viewport().height() + 1)))
+
+        # # 渲染登记
+        # if asts is None:
+        #     asts = self.document().ast().children
+        # elif isinstance(asts, (list, tuple, set)):
+        #     pass
+        # else:
+        #     asts = [asts]
+
 
     def resizeEvent(self, event) -> None:
-        scrollValue = self.verticalScrollBar().value()
         super(MarkdownEdit, self).resizeEvent(event)
-        # 1.重回markdown
-        self.renderMarkdownToCache()
-        self.verticalScrollBar().setMaximum(
-            int(max(self.viewport().height(), self._cachePaint.height() - self.viewport().height() + 1)))
-        self.verticalScrollBar().setValue(scrollValue)
 
     def onTextHeightChanged(self):
         """ 高度变化 """
@@ -260,20 +286,17 @@ class MarkdownEdit(QTextEdit):
     def mousePressEvent(self, e: QMouseEvent) -> None:
         # super(MarkdownEdit, self).mousePressEvent(e)
         # 点击移动 光标
+        old_ast = self.cursor().ast()
         cursor = self.cursor()
         view_pos = e.pos() + QPointF(0, self.verticalScrollBar().value())
         cursor_pos = self._cachePaint.cursorPluginBases(ast=self.cursor().ast(), pos=self.cursor().pos())
-        cursor_pos = cursor_pos + QPointF(0, self._ast_render_pos[self.cursor().ast()])
-        cursor.move(flag=MarkdownCursor.MOVE_MOUSE,
-                    pos=view_pos - cursor_pos)
+        cursor_pos = cursor_pos + QPointF(0, self.__contentItems[self.cursor().ast()].y())
+        cursor.move(flag=MarkdownCursor.MOVE_MOUSE, pos=view_pos - cursor_pos)
         cursor.setSelectMode(mode=cursor.SELECT_MODE_SINGLE)
         cursor.setIsShowCursorShader(True)
+        self.__contentItems[old_ast].reset()
+        self.__contentItems[self.cursor().ast()].reset()
         self.viewport().update()
-        # if input some new content, the ast will update near the ast of cursor
-        ast_idx = self.document().ast().index(self.cursor().ast())
-        st = time.time()
-        self.renderMarkdownToCache(asts=self.document().ast().children[max(0, ast_idx - 3):ast_idx + 3])
-        print(time.time()-st)
 
     def mouseMoveEvent(self, e: QMouseEvent) -> None:
         # 多选模式
@@ -282,7 +305,7 @@ class MarkdownEdit(QTextEdit):
             if cursor.selectMode() != cursor.SELECT_MODE_MUTIL: cursor.setSelectMode(cursor.SELECT_MODE_MUTIL)
             view_pos = e.pos() + QPointF(0, self.verticalScrollBar().value())
             cursor_pos = self._cachePaint.cursorPluginBases(ast=self.cursor().ast(), pos=self.cursor().pos())
-            cursor_pos = cursor_pos + QPointF(0, self._ast_render_pos[self.cursor().ast()])
+            cursor_pos = cursor_pos + QPointF(0, self.__contentItems[self.cursor().ast()].y())
 
             cursor.move(flag=MarkdownCursor.MOVE_MOUSE,
                         pos=view_pos - cursor_pos)
@@ -292,7 +315,7 @@ class MarkdownEdit(QTextEdit):
     def mouseReleaseEvent(self, e: QMouseEvent) -> None:
         # 退出多选
         cursor = self.cursor()
-        cursor.setSelectMode(cursor.SELECT_MODE_SINGLE)
+        # cursor.setSelectMode(cursor.SELECT_MODE_SINGLE)
         self.viewport().update()
 
     def inputMethodEvent(self, event: QInputMethodEvent) -> None:
@@ -301,7 +324,7 @@ class MarkdownEdit(QTextEdit):
         commitString = event.commitString()
         if commitString != "":
             self.cursor().add(event.commitString())
-        self.renderMarkdownToCache()
+        self.updateMarkdownItem()
         self.viewport().update()
 
     def inputMethodQuery(self, property: Qt.InputMethodQuery) -> t.Any:
@@ -309,7 +332,7 @@ class MarkdownEdit(QTextEdit):
         if property == Qt.ImCursorRectangle:
             # 返回输入法候选框的位置
             pos = self._cachePaint.cursorPluginBases(ast=self.cursor().ast(), pos=self.cursor().pos())
-            pos = pos + QPointF(0, self._ast_render_pos[self.cursor().ast()])
+            pos = pos + QPointF(0, self.__contentItems[self.cursor().ast()].y())
             h = self._cachePaint.lineHeight(ast=self.cursor().ast(), pos=self.cursor().pos())
             # 在光标下方显示候选框
             return QRect(pos.toPoint(), QSizeF(pos.x(), h).toSize())  # 100 是候选框的高度
@@ -317,7 +340,7 @@ class MarkdownEdit(QTextEdit):
             return 0
         elif property == Qt.ImhHiddenText:
             return True
-        self.renderMarkdownToCache()
+        self.updateMarkdownItem()
         return super().inputMethodQuery(property)
 
     def keyPressEvent(self, e: QKeyEvent) -> None:
@@ -372,7 +395,9 @@ class MarkdownEdit(QTextEdit):
         # update ast render
         # if input some new content, the ast will update near the ast of cursor
         ast_idx = self.document().ast().index(self.cursor().ast())
-        self.renderMarkdownToCache(asts=self.document().ast().children[max(0, ast_idx - 3):ast_idx + 3])
+        self.updateMarkdownItem()
+        for ast in self.document().ast().children[max(0, ast_idx - 3):ast_idx + 3]:
+            self.__contentItems[ast].reset()
         self.viewport().update()
 
         # 观察是否在view中
@@ -380,7 +405,7 @@ class MarkdownEdit(QTextEdit):
         QApplication.instance().processEvents()  # <---先处理一次事件,获取响应的rect,不然输入事件会不同步
         # 获取 cusor 所在 的ast,以及对应的rect
         pos = self._cachePaint.cursorPluginBases(ast=self.cursor().ast(), pos=self.cursor().pos())
-        y = pos.y() + self._ast_render_pos[self.cursor().ast()]
+        y = pos.y() + self.__contentItems[self.cursor().ast()].y()
         lineHeight = self._cachePaint.lineHeight(ast=self.cursor().ast(), pos=self.cursor().pos())
         if y < self.verticalScrollBar().value():
             self.verticalScrollBar().setValue(int(y))

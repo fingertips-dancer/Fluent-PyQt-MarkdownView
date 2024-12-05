@@ -11,12 +11,18 @@ from matplotlib.mathtext import MathTextParser
 
 # from .cursor import MarkdownCursor
 from .markdown_ast import MarkdownASTBase
-from .text_paragraph import TextParagraph
-
+from .component import TextParagraph
+import re
 
 class ImageRender():
     latexPool = {}
     imagePool = {}
+
+    @staticmethod
+    def isURL(link):
+        """判断链接是否是一个 URL (以 http:// 或 https:// 开头)"""
+        url_pattern = re.compile(r'^(http|https)://')
+        return bool(url_pattern.match(link))
 
     @classmethod
     def math_to_image(cls, s, filename_or_obj, prop=None, dpi=None, format=None, *, color=None):

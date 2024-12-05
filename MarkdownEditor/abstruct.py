@@ -200,7 +200,7 @@ class AbstructTextParagraph():
     def __init__(self):
         self._cache: t.List[t.Tuple[t.Callable, t.Any, 'MarkdownASTBase', QFont, QBrush, QPen]] = []
         self.__viewWdith = 512
-        self.__margins: QMargins = QMargins()
+        self.__pageMargins: QMargins = QMargins()
         self.__outPragraphReutrnSpace = 15
         self.__inPragraphReutrnSpace = 10
         self.__lineHight: int = None  # 一行的高度
@@ -237,15 +237,15 @@ class AbstructTextParagraph():
 
     def setStartY(self, y: float or int):
         """ 绘制坐标"""
-        self.__painter_pos = QPointF(self.__margins.left() + self.__indentation, y)
+        self.__painter_pos = QPointF(self.margins().left() + self.__indentation, y)
 
     def setViewWdith(self, width: float):
         """ 窗口宽度 """
         self.__viewWdith = width
 
-    def setMargins(self, margins: QMargins):
+    def setPageMargins(self, margins: QMargins):
         """ 绘制边距 """
-        self.__margins = margins
+        self.__pageMargins = margins
 
     def setIndentation(self, indentation):
         """ 缩进 """
@@ -279,8 +279,11 @@ class AbstructTextParagraph():
 
     def margins(self) -> QMargins:
         """ 绘制边距 """
-        return self.__margins
+        return self.__pageMargins + self.__backgroundMargins
 
+    def pageMargins(self) -> QMargins:
+        """ 绘制边距 """
+        return self.__pageMargins
     def length(self) -> int:
         """ property: 渲染项 """
         return len(self._cache)

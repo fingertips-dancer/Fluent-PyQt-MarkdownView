@@ -4,7 +4,7 @@ import mistune
 from mistune.plugins.math import math
 
 from .base import MarkdownASTBase
-from MarkdownEditor.component.style import MarkdownStyle
+from ..style import MarkdownStyle
 from ..abstruct import AbstructCursor, AbstructCachePaint
 
 

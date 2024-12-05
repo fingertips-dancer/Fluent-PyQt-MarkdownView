@@ -4,7 +4,7 @@ from ..base import MarkdownASTBase
 from ...abstruct import AbstructCachePaint
 from ...abstruct import AbstructCursor
 from ...abstruct import AbstructTextParagraph as ATP
-from ...component import MarkdownStyle
+from ...style import MarkdownStyle
 
 
 @MarkdownASTBase.registerAst("link")

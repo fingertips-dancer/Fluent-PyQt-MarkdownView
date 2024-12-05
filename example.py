@@ -42,7 +42,6 @@ class View(FramelessWindow):
 
 if __name__ == "__main__":
     import sys
-
     app = QApplication(sys.argv)
     view = View()
     view.show()
