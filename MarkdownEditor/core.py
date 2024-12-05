@@ -49,6 +49,12 @@ class MarkdownEdit(QScrollArea):
         Qt.Key_Slash: '?'
     }
 
+    def createContentItem(self, ast) -> ContentItem:
+        _item = ContentItem(parent=self, cachePaint=self._cachePaint, ast=ast)
+        _item.collapseRequested.connect(self.onCollapseRequestedEvent)
+        self.__contentItems[ast] = _item
+        return _item
+
     def __init__(self):
         super().__init__()
         # 允许输入法
@@ -56,13 +62,12 @@ class MarkdownEdit(QScrollArea):
         # self.setAcceptRichText(False)
         self.scrollDelegate = SmoothScrollDelegate(self)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        # document
         self.__document = MarkDownDocument()
-
-        self.verticalScrollBar().setMaximum(1024)
         # cache
         self._cachePaint = CachePaint(self)
         # marigin
-        self._margins = QMargins(25, 25, 25, 25)
+        self._margins = QMargins(45, 25, 25, 25)
         # cursor
         self._cursor = MarkdownCursor(self)
         self._cursor._cachePaint = self._cachePaint
@@ -88,9 +93,9 @@ class MarkdownEdit(QScrollArea):
         self.setWidgetResizable(True)
         self.viewport().setStyleSheet("background-color:transparent;")
 
+        # menu
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_menu)
-        self.__document.heightChanged.connect(self.onTextHeightChanged)
 
         # Ctrl + V
         self.paste_action = QAction(self)
@@ -110,13 +115,6 @@ class MarkdownEdit(QScrollArea):
         self.cursor().setAST(self.document().ast().children[0])
         self.cursor().setPos(0)
         self.updateMarkdownItem()
-
-        # for i in range(self.itemLayout.count()):
-        #     self.itemLayout.itemAt(i).widget().deleteLater()
-        # for ast in self.document().ast().children:
-        #     item = ContentItem(self, cachePaint=self._cachePaint, ast=ast)
-        #     self.itemLayout.addWidget(item)
-        #     self.__contentItems[ast] = item
 
     def show_menu(self, pos):
         self.__menu = RoundMenu(self)
@@ -244,9 +242,7 @@ class MarkdownEdit(QScrollArea):
         s, e = False, False
         for i, ast in enumerate(self.document().ast().children):
             if i + 1 > self.itemLayout.count():
-                _item = ContentItem(parent=self, cachePaint=self._cachePaint, ast=ast)
-                self.itemLayout.insertWidget(i, _item)
-                self.__contentItems[ast] = _item
+                self.itemLayout.insertWidget(i, self.createContentItem(ast=ast))
                 QApplication.instance().processEvents()
                 continue
 
@@ -255,33 +251,15 @@ class MarkdownEdit(QScrollArea):
                 if s: break
             else:
                 self.itemLayout.removeWidget(item)
+                item.hide()
                 item.deleteLater()
-                _item = ContentItem(parent=self, cachePaint=self._cachePaint, ast=ast)
-                self.itemLayout.insertWidget(i, _item)
-                self.__contentItems[ast] = _item
+                self.itemLayout.insertWidget(i, self.createContentItem(ast=ast))
+                QApplication.instance().processEvents()
         # pop item
         for i in range(len(self.document().ast().children),
                        max(self.itemLayout.count(), len(self.document().ast().children))):
             QApplication.instance().processEvents()
             self.itemLayout.itemAt(i).widget().deleteLater()
-
-
-        # # 渲染登记
-        # if asts is None:
-        #     asts = self.document().ast().children
-        # elif isinstance(asts, (list, tuple, set)):
-        #     pass
-        # else:
-        #     asts = [asts]
-
-
-    def resizeEvent(self, event) -> None:
-        super(MarkdownEdit, self).resizeEvent(event)
-
-    def onTextHeightChanged(self):
-        """ 高度变化 """
-        self.verticalScrollBar().setMaximum(
-            int(max(self.viewport().height(), self._cachePaint.height() - self.viewport().height() + 1)))
 
     def mousePressEvent(self, e: QMouseEvent) -> None:
         # super(MarkdownEdit, self).mousePressEvent(e)
@@ -296,6 +274,7 @@ class MarkdownEdit(QScrollArea):
         cursor.setIsShowCursorShader(True)
         self.__contentItems[old_ast].reset()
         self.__contentItems[self.cursor().ast()].reset()
+
         self.viewport().update()
 
     def mouseMoveEvent(self, e: QMouseEvent) -> None:
@@ -313,10 +292,7 @@ class MarkdownEdit(QScrollArea):
             self.viewport().update()
 
     def mouseReleaseEvent(self, e: QMouseEvent) -> None:
-        # 退出多选
-        cursor = self.cursor()
-        # cursor.setSelectMode(cursor.SELECT_MODE_SINGLE)
-        self.viewport().update()
+        pass
 
     def inputMethodEvent(self, event: QInputMethodEvent) -> None:
         """输入法输入"""
@@ -342,6 +318,14 @@ class MarkdownEdit(QScrollArea):
             return True
         self.updateMarkdownItem()
         return super().inputMethodQuery(property)
+
+    def onCollapseRequestedEvent(self, item: ContentItem):
+        """ on collpose requested event """
+        root = self.document().ast()
+        for ast in root.children[root.index(item.ast()) + 1:]:
+            if ast.isShowCollapseButton():
+                return
+            self.__contentItems[ast].setVisible(not item.isCollapse())
 
     def keyPressEvent(self, e: QKeyEvent) -> None:
         # super(MarkdownEdit, self).keyPressEvent(e)

@@ -1,8 +1,9 @@
 import typing as t
 
-from ..style import MarkdownStyle
-from ..abstruct import AbstructCursor
 from ..abstruct import AbstructCachePaint
+from ..abstruct import AbstructCursor
+from ..style import MarkdownStyle
+
 
 class MarkdownASTBase():
     __node__ = {}
@@ -72,19 +73,19 @@ class MarkdownASTBase():
 
         # attr
         if len(self.attrs) != 0:
-            attrs = ast.pop("attrs",{})
+            attrs = ast.pop("attrs", {})
             for a in self.attrs:
                 try:
                     setattr(self, a, attrs.pop(a))
                 except KeyError as e:
-                    if not hasattr(self,a):
-                       raise Exception(f"属性<{a}>没有默认参数, 必须设置")
+                    if not hasattr(self, a):
+                        raise Exception(f"属性<{a}>没有默认参数, 必须设置")
                 except Exception as e:
                     raise e
 
-            assert len(attrs) == 0, f"{self} attrs解析未完成, {[(key,attrs[key]) for key in attrs.keys()]}"
+            assert len(attrs) == 0, f"{self} attrs解析未完成, {[(key, attrs[key]) for key in attrs.keys()]}"
         else:
-            assert "attrs" not in ast, f"{self} has attrs: {[(key,ast['attrs'][key]) for key in ast['attrs'].keys()]}"
+            assert "attrs" not in ast, f"{self} has attrs: {[(key, ast['attrs'][key]) for key in ast['attrs'].keys()]}"
 
         assert len(ast) == 0, f"{self} 解析未完成,{[key for key in ast.keys()]}"
 
@@ -152,9 +153,6 @@ class MarkdownASTBase():
         raise Exception
         return False
 
-    def toMarkdown(self) -> str:
-        raise NotImplementedError
-
     def appChildren(self, child: 'MarkdownASTBase'):
         assert hasattr(self, "children"), "the ast node has not children"
         self.children.append(child)
@@ -162,5 +160,9 @@ class MarkdownASTBase():
     def render(self, ht: AbstructCachePaint, style: MarkdownStyle, cursor: AbstructCursor = None):
         raise NotImplementedError(self)
 
-    def segment(self) -> t.List[t.Tuple['MarkdownASTBase', int]]:
+    def toMarkdown(self) -> str:
         raise NotImplementedError
+
+    def isShowCollapseButton(self) -> bool:
+        """ is show collapse button in view (for example, header)"""
+        return False

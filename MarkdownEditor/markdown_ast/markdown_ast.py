@@ -182,10 +182,8 @@ class MarkdownAst():
         # 创建一个 Markdown 解析器
         markdown = mistune.create_markdown(renderer="ast", plugins=[math])
         #markdown = mistune.create_markdown(renderer="ast",plugins=['math'])
-        print()
         # 解析 Markdown 并获取 AST
         ast = markdown(text)
-        print(ast)
         self.children = self.parse(ast)
 
     def parse(self, ast) -> t.List[MarkdownASTBase]:

@@ -1,8 +1,8 @@
 import typing as t
 
 from ..base import MarkdownASTBase
-from ...style import MarkdownStyle
 from ...abstruct import AbstructCursor, AbstructCachePaint, AbstructTextParagraph
+from ...style import MarkdownStyle
 
 
 @MarkdownASTBase.registerAst("heading")
@@ -21,6 +21,9 @@ class Header(MarkdownASTBase):
 
     def toMarkdown(self) -> str:
         return "#" * self.level + " " + "".join([c.toMarkdown() for c in self.children]) + "\n"
+
+    def isShowCollapseButton(self) -> bool:
+        return True
 
     def render(self, ht: AbstructCachePaint, style: MarkdownStyle, cursor: AbstructCursor = None):
         ht.painter().setFont(style.hintFont(font=ht.painter().font(), ast="header", level=self.level))
