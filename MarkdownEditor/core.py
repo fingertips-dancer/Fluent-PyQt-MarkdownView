@@ -1,19 +1,19 @@
 import time
 import typing as t
 
-from PyQt5.QtCore import Qt, QPointF, QRect, QMargins, QRectF, QSizeF
+from PyQt5.QtCore import Qt, QPointF, QRect, QMargins, QRectF, QSizeF, QThread
 from PyQt5.QtGui import QFontMetrics, QColor
 from PyQt5.QtGui import QPainter, QPaintEvent, QMouseEvent, QKeyEvent, QInputMethodEvent, QKeySequence
-from PyQt5.QtWidgets import QAction, QApplication, QVBoxLayout, QWidget, QScrollArea, QSpacerItem, QSizePolicy
+from PyQt5.QtWidgets import QAction, QApplication, QWidget, QScrollArea
+from qfluentwidgets import Action
 from qfluentwidgets import FluentIcon as FIF
-from qfluentwidgets import RoundMenu, Action
-from qfluentwidgets import SmoothScrollDelegate
+from qfluentwidgets import SmoothScrollDelegate, RoundMenu
 from qfluentwidgets import ThemeColor
 
 from . import render_function
 from .cache_paint import CachePaint
 from .component import ContentItem
-from .component import PreEdit
+from .component import PreEdit, LoadProgressBar
 from .cursor import MarkdownCursor
 from .document import MarkDownDocument
 from .markdown_ast import MarkdownASTBase
@@ -24,36 +24,52 @@ MOVE_MODE = {Qt.Key_Up: MarkdownCursor.MOVE_UP,
              Qt.Key_Down: MarkdownCursor.MOVE_DOWN,
              Qt.Key_Left: MarkdownCursor.MOVE_FELT,
              Qt.Key_Right: MarkdownCursor.MOVE_RIGHT}
+special_chars = {
+    Qt.Key_1: '!',
+    Qt.Key_2: '@',
+    Qt.Key_3: '#',
+    Qt.Key_4: '$',
+    Qt.Key_5: '%',
+    Qt.Key_6: '^',
+    Qt.Key_7: '&',
+    Qt.Key_8: '*',
+    Qt.Key_9: '(',
+    Qt.Key_0: ')',
+    Qt.Key_Minus: '_',
+    Qt.Key_Equal: '+',
+    Qt.Key_BracketLeft: '{',
+    Qt.Key_BracketRight: '}',
+    Qt.Key_Semicolon: ':',
+    Qt.Key_Apostrophe: '"',
+    Qt.Key_Comma: '<',
+    Qt.Key_Period: '>',
+    Qt.Key_Slash: '?'
+}
+
+
+class Thread(QThread):
+    def __init__(self, target: t.Callable):
+        super(Thread, self).__init__()
+        self._target = target
+
+    def run(self) -> None:
+        self._target()
 
 
 class MarkdownEdit(QScrollArea):
-    special_chars = {
-        Qt.Key_1: '!',
-        Qt.Key_2: '@',
-        Qt.Key_3: '#',
-        Qt.Key_4: '$',
-        Qt.Key_5: '%',
-        Qt.Key_6: '^',
-        Qt.Key_7: '&',
-        Qt.Key_8: '*',
-        Qt.Key_9: '(',
-        Qt.Key_0: ')',
-        Qt.Key_Minus: '_',
-        Qt.Key_Equal: '+',
-        Qt.Key_BracketLeft: '{',
-        Qt.Key_BracketRight: '}',
-        Qt.Key_Semicolon: ':',
-        Qt.Key_Apostrophe: '"',
-        Qt.Key_Comma: '<',
-        Qt.Key_Period: '>',
-        Qt.Key_Slash: '?'
-    }
 
     def createContentItem(self, ast) -> ContentItem:
         _item = ContentItem(parent=self, cachePaint=self._cachePaint, ast=ast)
         _item.collapseRequested.connect(self.onCollapseRequestedEvent)
+        _item.setParent(self.__w)
         self.__contentItems[ast] = _item
         return _item
+
+    def _adjustScroll(self):
+        item = list(self.__contentItems.values())[-1]
+        while item.downItem():
+            item = item.downItem()
+        self.__w.setFixedHeight((item.y() + item.height()))
 
     def __init__(self):
         super().__init__()
@@ -80,16 +96,14 @@ class MarkdownEdit(QScrollArea):
         self.__style = MarkdownStyle()
         # items
         self.__contentItems: t.Dict[MarkdownASTBase, ContentItem] = {}
+        # wait add content item queue
+        self.__addContentItemQueue = []
 
+        # widget
+        self.loadProgressBar = LoadProgressBar(self)
+        self.loadProgressBar.show()
         self.__w = QWidget(self)
         self.setWidget(self.__w)
-        self.mainLayout = QVBoxLayout(self.__w)
-        self.itemLayout = QVBoxLayout()
-        self.mainLayout.addLayout(self.itemLayout)
-        self.mainLayout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding))
-        self.mainLayout.setContentsMargins(0, 0, 0, 0)
-        self.mainLayout.setSpacing(0)
-        self.setViewportMargins(0, 0, 0, 0)
         self.setWidgetResizable(True)
         self.viewport().setStyleSheet("background-color:transparent;")
 
@@ -107,6 +121,9 @@ class MarkdownEdit(QScrollArea):
 
         self.setMarkdown("")
         self.verticalScrollBar().valueChanged.connect(self.update)
+
+        # connect
+        self.verticalScrollBar().valueChanged.connect(self.onScrollValueChangedEvent)
 
     def setMarkdown(self, text: str) -> None:
 
@@ -153,9 +170,60 @@ class MarkdownEdit(QScrollArea):
         clipboard.setText(copy_text)
         self.update()
 
+    def updateMarkdownItem(self, asts: t.Union[t.List[MarkdownASTBase], MarkdownASTBase] = None):
+        """
+        渲染到缓存
+        :param asts: 确定重绘的范围,None表示全部
+        :return:
+        """
+        # show info
+        self.loadProgressBar.show()
+
+        # 删除多余的item
+        have_init_items = set(self.__contentItems.keys())
+        need_init_items = set(self.document().ast().children)
+        need_del_items = have_init_items.difference(need_init_items)
+        for ast in need_del_items:
+            item = self.__contentItems.pop(ast)
+            item.hide()
+            item.deleteLater()
+
+        # 差集,查看需要初始化的item
+        # 需要保持顺序
+        not_init_items = [ast for ast in self.document().ast().children if ast not in have_init_items]
+        # 初始化
+        self.loadProgressBar.setMaximum(len(self.document().ast().children) - 1)
+        for i, ast in enumerate(not_init_items):
+            self.loadProgressBar.setValue(i + 1)
+            item = self.createContentItem(ast=ast)
+            self.__contentItems[ast] = item
+            upAst = ast.upAst()
+            downAst = ast.downAst()
+            if upAst in self.__contentItems: item.setUpItem(self.__contentItems[upAst])
+            if downAst in self.__contentItems: item.setDownItem(self.__contentItems[downAst])
+            item.show()
+            QApplication.processEvents()
+
+        print("now", len(self.__contentItems))
+        self.loadProgressBar.hide()
+
+        self._adjustScroll()
+
     def paintEvent(self, event: QPaintEvent) -> None:
         super(MarkdownEdit, self).paintEvent(event)
         st = time.time()
+        # -1. add some item form queue
+        for i in range(min(10, len(self.__addContentItemQueue))):
+            item = self.__addContentItemQueue.pop(0)
+            item.show()
+            self.itemLayout.addWidget(item)
+
+        # 0. check a ast whether be painted
+        if self.cursor().ast() not in self._cachePaint.cachePxiamp():
+            if self.cursor().ast() not in self.__contentItems:
+                return
+            self.__contentItems[self.cursor().ast()].render_()
+
         # 1. draw rect
         rect = self.viewport().geometry()
         rect.moveTo(0, self.verticalScrollBar().value())
@@ -230,36 +298,15 @@ class MarkdownEdit(QScrollArea):
                 painter.drawLine(pulginBasePos,
                                  QPointF(pulginBasePos.x(), pulginBasePos.y() + lineHeight))
 
-        # print("绘制时间",self.verticalScrollBar().value(),time.time()-st)
 
-    def updateMarkdownItem(self, asts: t.Union[t.List[MarkdownASTBase], MarkdownASTBase] = None):
-        """
-        渲染到缓存
-        :param asts: 确定重绘的范围,None表示全部
-        :return:
-        """
 
-        s, e = False, False
-        for i, ast in enumerate(self.document().ast().children):
-            if i + 1 > self.itemLayout.count():
-                self.itemLayout.insertWidget(i, self.createContentItem(ast=ast))
-                QApplication.instance().processEvents()
-                continue
-
-            item: ContentItem = self.itemLayout.itemAt(i).widget()
-            if item.ast() is ast:
-                if s: break
-            else:
-                self.itemLayout.removeWidget(item)
-                item.hide()
-                item.deleteLater()
-                self.itemLayout.insertWidget(i, self.createContentItem(ast=ast))
-                QApplication.instance().processEvents()
-        # pop item
-        for i in range(len(self.document().ast().children),
-                       max(self.itemLayout.count(), len(self.document().ast().children))):
-            QApplication.instance().processEvents()
-            self.itemLayout.itemAt(i).widget().deleteLater()
+    def onScrollValueChangedEvent(self, value: int):
+        """ onScrollValueChangedEvent """
+        item:ContentItem = self.__w.childAt(self.width() // 2, value)
+        if item and item.ast().downAst():
+            self.__contentItems[item.ast().downAst()].render_()
+        QApplication.processEvents()
+        self._adjustScroll()
 
     def mousePressEvent(self, e: QMouseEvent) -> None:
         # super(MarkdownEdit, self).mousePressEvent(e)
@@ -325,7 +372,12 @@ class MarkdownEdit(QScrollArea):
         for ast in root.children[root.index(item.ast()) + 1:]:
             if ast.isShowCollapseButton():
                 return
-            self.__contentItems[ast].setVisible(not item.isCollapse())
+            self.__contentItems[ast].hide() if item.isCollapse() else self.__contentItems[ast].show()
+        self._adjustScroll()
+
+    def resizeEvent(self, e) -> None:
+        super(MarkdownEdit, self).resizeEvent(e)
+        self._adjustScroll()
 
     def keyPressEvent(self, e: QKeyEvent) -> None:
         # super(MarkdownEdit, self).keyPressEvent(e)
@@ -367,7 +419,7 @@ class MarkdownEdit(QScrollArea):
                 char = e.text().upper() if isShiftPressed != isCapsLockOn else e.text().lower()
             else:
                 # Handle special characters
-                char = self.special_chars.get(e.key(), e.text())
+                char = special_chars.get(e.key(), e.text())
                 if not isShiftPressed:
                     # Handle non-shifted versions of special characters
                     char = char.lower() if char.isalpha() else e.text()

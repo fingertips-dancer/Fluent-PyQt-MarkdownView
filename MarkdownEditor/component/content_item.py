@@ -1,6 +1,6 @@
-from PyQt5.QtCore import QMargins, pyqtSignal
-from PyQt5.QtGui import QPainter, QPixmap
-from PyQt5.QtWidgets import QWidget, QScrollArea
+from PyQt5.QtCore import QMargins, pyqtSignal, QEvent
+from PyQt5.QtGui import QPainter, QPixmap, QResizeEvent, QPaintEvent
+from PyQt5.QtWidgets import QWidget, QScrollArea, QListWidgetItem
 
 from .collapse_button import CollapseButton
 from ..cache_paint import CachePaint
@@ -9,9 +9,20 @@ from ..markdown_ast import MarkdownASTBase
 from ..style import MarkdownStyle
 
 
+class ListItem(QListWidgetItem):
+    def __init__(self, ast: MarkdownASTBase):
+        super(ListItem, self).__init__()
+        self.__ast = ast
+
+    def ast(self) -> MarkdownASTBase:
+        return self.__ast
+
+
 class AbstractContentItem(QWidget):
     def __init__(self, parent, cachePaint: CachePaint, ast: MarkdownASTBase):
         self.__view = parent
+        self.__upItem: AbstractContentItem = None
+        self.__downItem: AbstractContentItem = None
         super(AbstractContentItem, self).__init__(parent=parent)
         self.__ast: MarkdownASTBase = None
         self._cachePaint: CachePaint = cachePaint
@@ -19,11 +30,53 @@ class AbstractContentItem(QWidget):
         # set
         self.setAST(ast=ast)
 
+    def setUpItem(self, item: "AbstractContentItem"):
+        # self.move(0, 2000)
+        # return
+
+        """ set up item """
+        if self.__upItem:
+            self.__upItem.removeEventFilter(self)
+        item.installEventFilter(self)
+        self.__upItem = item
+        # sync
+        if item.downItem() != self:
+            item.setDownItem(item=self)
+        self.move(0, self.upItem().y() + self.upItem().height())
+
+    def setDownItem(self, item: "AbstractContentItem"):
+        # self.move(0, 2000)
+        # return
+        """ set up item """
+        if self.__downItem:
+            self.__downItem.removeEventFilter(self)
+        item.installEventFilter(self)
+        self.__downItem = item
+        # sync
+        if item.upItem() != self:
+            item.setUpItem(item=self)
+
     def setAST(self, ast: MarkdownASTBase):
         self.__ast = ast
 
-    def __get_the_base_scoll(self) -> QWidget:
-        return self.parent().parent().parent()
+    # def setFixedHeight(self, height: int):
+    #     super(AbstractContentItem, self).setFixedHeight(height)
+    #     if self.__downItem:
+    #         self.__downItem.move(0, self.y() + self.height())
+    #
+    # def move(self, x: int, y: int) -> None:
+    #     super(AbstractContentItem, self).move(x, y)
+    #     if self.__downItem:
+    #         self.__downItem.move(0, self.y() + self.height())
+    def eventFilter(self, obj, event) -> bool:
+        if self.inViewport() and self.__upItem:
+            y = self.__upItem.y() + self.__upItem.height()
+            self.move(0, y)
+        elif obj is self.__upItem and event.type() in (QEvent.Paint,QEvent.Resize, QEvent.Move,QEvent.Hide,QEvent.Show):
+            y = self.__upItem.y() + self.__upItem.height()
+            if self.__upItem.inViewport() or self.inViewport():  # <--视图中才更新,防止递归深度太大
+                self.move(0, y)
+        return False
 
     def pageMargins(self) -> QMargins:
         margins = self.view()._margins
@@ -39,7 +92,7 @@ class AbstractContentItem(QWidget):
         self._pixmapCache = None
 
     def inViewport(self) -> bool:
-        w: QScrollArea = self.__get_the_base_scoll()
+        w: QScrollArea = self.view()
         view = w.viewport()
         t = w.verticalScrollBar().value()
         b = w.verticalScrollBar().value() + view.height()
@@ -48,10 +101,16 @@ class AbstractContentItem(QWidget):
                (self.y() < t < b < self.y() + self.height())
 
     def viewpot(self) -> QWidget:
-        return self.__get_the_base_scoll().viewport()
+        return self.view().viewport()
 
     def view(self) -> QWidget:
         return self.__view
+
+    def upItem(self) -> 'AbstractContentItem':
+        return self.__upItem
+
+    def downItem(self) -> 'AbstractContentItem':
+        return self.__downItem
 
 
 class ContentItem(AbstractContentItem):
@@ -60,12 +119,13 @@ class ContentItem(AbstractContentItem):
     def __init__(self, parent, cachePaint: CachePaint, ast: MarkdownASTBase):
         self.__callopseButton: CollapseButton = None
         super(ContentItem, self).__init__(parent=parent, cachePaint=cachePaint, ast=ast)
+        self.__listItem = ListItem(ast=ast)
 
     def setAST(self, ast: MarkdownASTBase):
         super(ContentItem, self).setAST(ast=ast)
         if ast.isShowCollapseButton() and self.__callopseButton is None:
             self.__callopseButton = CollapseButton.new(self)
-            self.__callopseButton.clicked.connect(lambda :self.collapseRequested.emit(self))
+            self.__callopseButton.clicked.connect(lambda: self.collapseRequested.emit(self))
         elif not ast.isShowCollapseButton() and self.__callopseButton is not None:
             self.__callopseButton.deleteLater()
             self.__callopseButton = None
@@ -89,6 +149,7 @@ class ContentItem(AbstractContentItem):
         self._pixmapCache = pixmap
         # 计算需要的 verticalScroll
         self.setFixedHeight(pixmap.height())
+        self.__listItem.setSizeHint(pixmap.size())
 
         # callopse button
         if self.__callopseButton:
@@ -99,21 +160,21 @@ class ContentItem(AbstractContentItem):
 
         return pixmap
 
-    def resizeEvent(self, event) -> None:
+    def resizeEvent(self, event: QResizeEvent) -> None:
         if self.inViewport() or self.cursor().ast() not in self._cachePaint.cachePxiamp():
             self.setFixedWidth(self.viewpot().width())
-            pixmap = self.render_()
             super(ContentItem, self).resizeEvent(event)
         else:
-            self.setFixedHeight(1)
+            pass
         return
 
-    def paintEvent(self, event) -> None:
-        painter = QPainter(self)
+    def paintEvent(self, event: QPaintEvent) -> None:
+        super(ContentItem, self).paintEvent(event)
         if not isinstance(self._pixmapCache, QPixmap) or self.viewpot().width() != self.width():
             self.setFixedWidth(self.viewpot().width())
             self.render_()
         try:
+            painter = QPainter(self)
             painter.drawPixmap(0, 0, self._pixmapCache)
             painter.end()
         except:
@@ -123,3 +184,19 @@ class ContentItem(AbstractContentItem):
         """ 是否折叠 """
         return self.__callopseButton.isCollapse()
 
+    def listItem(self) -> ListItem:
+        return self.__listItem
+
+    def show(self) -> None:
+        super(ContentItem, self).show()
+        if self._pixmapCache is None:
+            self.render_()
+        else:
+            self.setFixedHeight(self._pixmapCache.height())
+
+    def hide(self) -> None:
+        super(ContentItem, self).hide()
+        self.setFixedHeight(0)
+
+    def height(self) -> int:
+        return 0 if self.isHidden() else super(ContentItem, self).height()

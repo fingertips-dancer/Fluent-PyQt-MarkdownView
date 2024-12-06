@@ -42,3 +42,4 @@ class CollapseButton(TransparentToolButton):
             self._icon.render(painter, QRectF(x, y, w, h), fill="#5e5e5e")
         else:
             self._icon.render(painter, QRectF(x, y, w, h), fill="#9c9c9c")
+

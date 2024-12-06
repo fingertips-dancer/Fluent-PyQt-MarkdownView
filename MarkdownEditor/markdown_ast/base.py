@@ -166,3 +166,19 @@ class MarkdownASTBase():
     def isShowCollapseButton(self) -> bool:
         """ is show collapse button in view (for example, header)"""
         return False
+
+    def upAst(self):
+        """ an ast in the up of the ast """
+        assert self.parent is not None, "The ast is a root ast, and it dose not have up ast or down ast"
+        idx = self.parent.children.index(self)
+        if idx == 0:
+            return None
+        return self.parent.children[idx - 1]
+
+    def downAst(self):
+        """ an ast in the down of the ast """
+        assert self.parent is not None, "The ast is a root ast, and it dose not have up ast or down ast"
+        idx = self.parent.children.index(self)
+        if idx + 1 >= len(self.parent.children):
+            return None
+        return self.parent.children[idx + 1]
