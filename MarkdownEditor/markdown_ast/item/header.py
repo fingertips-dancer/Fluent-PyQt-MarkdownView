@@ -26,12 +26,15 @@ class Header(MarkdownASTBase):
         return True
 
     def render(self, ht: AbstructCachePaint, style: MarkdownStyle, cursor: AbstructCursor = None):
-        ht.painter().setFont(style.hintFont(font=ht.painter().font(), ast="header", level=self.level))
+        astName = ("h1","h2","h3","h4","h5","h6")[self.level-1]
+        isShowHide = False if cursor is None else cursor.isIn(ast=self)
 
-        if cursor and cursor.ast() is self or cursor.ast().isChild(self):  # 光标
-            ht.painter().setPen(style.hintPen(pen=ht.painter().pen(), ast="header", level=self.level, hide=True))
+        ht.painter().setFont(style.hintFont(font=ht.painter().font(), ast=astName, s=self.level))
+        if isShowHide:  # 光标
+            ht.painter().save()
+            ht.painter().setPen(style.hintPen(pen=ht.painter().pen(), ast=astName,pseudo="hidden"))
             ht.renderContent(func=AbstructTextParagraph.Render_Text, data="#" * self.level + " ", ast=self)  # 绘制隐藏项
-            ht.painter().setPen(style.hintPen(pen=ht.painter().pen(), ast="header", level=self.level, hide=False))
+            ht.painter().restore()
         else:
             ht.renderContent(func=AbstructTextParagraph.Render_HideText, data="#" * self.level + " ", ast=self)  # 绘制隐藏项
 

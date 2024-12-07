@@ -1,7 +1,8 @@
+import os
 import time
 import typing as t
 
-from PyQt5.QtCore import Qt, QPointF, QRect, QMargins, QRectF, QSizeF, QThread
+from PyQt5.QtCore import Qt, QPointF, QRect, QMargins, QRectF, QSizeF, QThread, QTimer
 from PyQt5.QtGui import QFontMetrics, QColor
 from PyQt5.QtGui import QPainter, QPaintEvent, QMouseEvent, QKeyEvent, QInputMethodEvent, QKeySequence
 from PyQt5.QtWidgets import QAction, QApplication, QWidget, QScrollArea
@@ -66,10 +67,70 @@ class MarkdownEdit(QScrollArea):
         return _item
 
     def _adjustScroll(self):
-        item = list(self.__contentItems.values())[-1]
-        while item.downItem():
+        if len(self.__contentItems.values()):
+            item = list(self.__contentItems.values())[-1]
+            while item.downItem():
+                item = item.downItem()
+            self.__w.setFixedHeight((item.y() + item.height()))
+
+    def autoUpdateMarkdownItem(self, maxUpdateNum=10):
+        """
+        渲染到缓存
+        :param asts: 确定重绘的范围,None表示全部
+        :return:
+        """
+        self.__updateItemer.stop()
+
+        # 删除多余的item
+        have_init_items = set(self.__contentItems.keys())
+        need_init_items = set(self.document().ast().children)
+        need_del_items = have_init_items.difference(need_init_items)
+        if len(need_del_items):
+            self.loadProgressBar.show()
+            self.loadProgressBar.setMaximum(len(need_del_items))
+            for i, ast in enumerate(need_del_items):
+                self.loadProgressBar.setValue(i + 1)
+                item = self.__contentItems.pop(ast)
+                item.hide()
+                item.deleteLater()
+
+        # 差集,查看需要初始化的item
+        # 需要保持顺序
+        not_init_items = [ast for ast in self.document().ast().children if ast not in have_init_items]
+        # 初始化
+        _len = len(not_init_items)
+        if _len:
+            the_len = len(self.document().ast().children) - 1
+            self.loadProgressBar.setMaximum(the_len)
+            for i, ast in enumerate(not_init_items[:maxUpdateNum]):
+                self.loadProgressBar.setValue(the_len - _len + i + 1)
+                item = self.createContentItem(ast=ast)
+                item.setFixedWidth(self.width())
+                self.__contentItems[ast] = item
+                upAst = ast.upAst()
+                downAst = ast.downAst()
+                if upAst in self.__contentItems: item.setUpItem(self.__contentItems[upAst])
+                if downAst in self.__contentItems: item.setDownItem(self.__contentItems[downAst])
+                item.show()
+        # self.update()
+        # self.viewport().update()
+        # QApplication.processEvents()
+        # for ast in not_init_items[:maxUpdateNum]:
+        #     self.__contentItems[ast].show()
+
+        # move item
+        # up or down for self.height()
+        item: ContentItem = self.__w.childAt(self.width() // 2,
+                                             max(0, self.verticalScrollBar().value() - self.height() * 2))
+        while item is not None and item.y() - self.verticalScrollBar().value() < self.height() * 2:
+            if item.upItem():
+                item.move(0, item.upItem().y() + item.upItem().height())
             item = item.downItem()
-        self.__w.setFixedHeight((item.y() + item.height()))
+
+        startIime = time.time()
+        self.__updateItemer.start(10)
+        self.loadProgressBar.hide()
+        self._adjustScroll()
 
     def __init__(self):
         super().__init__()
@@ -82,22 +143,15 @@ class MarkdownEdit(QScrollArea):
         self.__document = MarkDownDocument()
         # cache
         self._cachePaint = CachePaint(self)
-        # marigin
-        self._margins = QMargins(45, 25, 25, 25)
         # cursor
         self._cursor = MarkdownCursor(self)
         self._cursor._cachePaint = self._cachePaint
         self._cursor.showCursorShaderTimer.timeout.connect(self.viewport().update)
-        # ast render pos
-        self._ast_render_pos = {}
         # pre edit and cursor in this
         self._preEdit = PreEdit(self)
         # pre edit
-        self.__style = MarkdownStyle()
         # items
         self.__contentItems: t.Dict[MarkdownASTBase, ContentItem] = {}
-        # wait add content item queue
-        self.__addContentItemQueue = []
 
         # widget
         self.loadProgressBar = LoadProgressBar(self)
@@ -119,32 +173,50 @@ class MarkdownEdit(QScrollArea):
         self.paste_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
         self.addAction(self.paste_action)
 
-        self.setMarkdown("")
-        self.verticalScrollBar().valueChanged.connect(self.update)
-
         # connect
         self.verticalScrollBar().valueChanged.connect(self.onScrollValueChangedEvent)
+        self.verticalScrollBar().valueChanged.connect(self.update)
+        # auto update
+        self.__updateItemer = QTimer()
+        self.__updateItemer.setSingleShot(True)
+        self.__updateItemer.timeout.connect(self.autoUpdateMarkdownItem)
+
+        # init
+        self.setSytle()
+        self.setMarkdown("")
+        self.__updateItemer.start(10)
+
+    def setSytle(self,style:str=None):
+        if style is None:
+            path = os.path.join(os.path.dirname(__file__), "_rc", "github.css")
+        else:
+            path = style
+        with open(path, 'r',encoding="utf8") as f:
+            css_content = f.read()
+        self.__style = MarkdownStyle.create(css_content)
+
+        margins = self.__style.hintBackgroundMargins(ast = 'root')
+        self._margins = QMargins(*margins)
+
 
     def setMarkdown(self, text: str) -> None:
-
         self.__document.setMarkdown(text)
-
+        self.cursor().setSelectMode(mode=MarkdownCursor.SELECT_MODE_SINGLE)
         self.cursor().setAST(self.document().ast().children[0])
         self.cursor().setPos(0)
-        self.updateMarkdownItem()
+        self.autoUpdateMarkdownItem()
 
     def show_menu(self, pos):
         self.__menu = RoundMenu(self)
-        self.__menu.addAction(Action(FIF.COPY, self.tr("复制"), triggered=lambda: self.save("stress.md")))
+        self.__menu.addAction(Action(FIF.COPY, self.tr("复制"), triggered=self.copyToClipboard))
         self.__menu.addAction(Action(FIF.PASTE, self.tr("粘贴"), triggered=self.pasteFromClipboard))
-        self.__menu.addAction(Action(FIF.SAVE, self.tr("保存"), triggered=lambda: self.save("stress.md")))
+        sub_menu = RoundMenu("添加")
+        sub_menu.addAction(Action(FIF.COPY, self.tr("图片"), triggered=lambda: print("图片")))
+        sub_menu.addAction(Action(FIF.COPY, self.tr("公式"), triggered=lambda: print("公式")))
+        sub_menu.addAction(Action(FIF.COPY, self.tr("连接"), triggered=lambda: print("连接")))
+        sub_menu.setIcon(FIF.ADD)
+        self.__menu.addMenu(sub_menu)
         self.__menu.exec_(self.mapToGlobal(pos))
-
-    def save(self, path):
-        text = self.__document.toMarkdown()
-        print(self.__document.ast().summary())
-        with open(path, "w") as f:
-            f.write(text)
 
     def pasteFromClipboard(self):
         """ paste form clipboard """
@@ -158,65 +230,17 @@ class MarkdownEdit(QScrollArea):
         clipboard = QApplication.clipboard()
         start_ast, start_pos, end_ast, end_pos = self.cursor().selectedASTs()
         start_idx = self.document().ast().index(start_ast)
+        end_idx = self.document().ast().index(end_ast)
         # get copy text
         copy_text = ""
-        for ast in self.document().ast().children[start_idx:]:
-            if ast is end_ast:
-                copy_text += ast.toMarkdown()[:end_pos]
-                break
-            else:
-                copy_text += ast.toMarkdown()
-        copy_text = copy_text[start_pos:]
+        for ast in self.document().ast().children[start_idx:end_idx + 1]:
+            copy_text += ast.toMarkdown()
+        copy_text = copy_text[start_pos:end_pos - len(ast.toMarkdown())]
         clipboard.setText(copy_text)
         self.update()
 
-    def updateMarkdownItem(self, asts: t.Union[t.List[MarkdownASTBase], MarkdownASTBase] = None):
-        """
-        渲染到缓存
-        :param asts: 确定重绘的范围,None表示全部
-        :return:
-        """
-        # show info
-        self.loadProgressBar.show()
-
-        # 删除多余的item
-        have_init_items = set(self.__contentItems.keys())
-        need_init_items = set(self.document().ast().children)
-        need_del_items = have_init_items.difference(need_init_items)
-        for ast in need_del_items:
-            item = self.__contentItems.pop(ast)
-            item.hide()
-            item.deleteLater()
-
-        # 差集,查看需要初始化的item
-        # 需要保持顺序
-        not_init_items = [ast for ast in self.document().ast().children if ast not in have_init_items]
-        # 初始化
-        self.loadProgressBar.setMaximum(len(self.document().ast().children) - 1)
-        for i, ast in enumerate(not_init_items):
-            self.loadProgressBar.setValue(i + 1)
-            item = self.createContentItem(ast=ast)
-            self.__contentItems[ast] = item
-            upAst = ast.upAst()
-            downAst = ast.downAst()
-            if upAst in self.__contentItems: item.setUpItem(self.__contentItems[upAst])
-            if downAst in self.__contentItems: item.setDownItem(self.__contentItems[downAst])
-            item.show()
-            QApplication.processEvents()
-
-        print("now", len(self.__contentItems))
-        self.loadProgressBar.hide()
-
-        self._adjustScroll()
-
     def paintEvent(self, event: QPaintEvent) -> None:
         super(MarkdownEdit, self).paintEvent(event)
-        st = time.time()
-        # -1. add some item form queue
-        for i in range(min(10, len(self.__addContentItemQueue))):
-            item = self.__addContentItemQueue.pop(0)
-            item.show()
-            self.itemLayout.addWidget(item)
 
         # 0. check a ast whether be painted
         if self.cursor().ast() not in self._cachePaint.cachePxiamp():
@@ -298,35 +322,31 @@ class MarkdownEdit(QScrollArea):
                 painter.drawLine(pulginBasePos,
                                  QPointF(pulginBasePos.x(), pulginBasePos.y() + lineHeight))
 
-
-
     def onScrollValueChangedEvent(self, value: int):
         """ onScrollValueChangedEvent """
-        item:ContentItem = self.__w.childAt(self.width() // 2, value)
+        item: ContentItem = self.__w.childAt(self.width() // 2, value)
         if item and item.ast().downAst():
             self.__contentItems[item.ast().downAst()].render_()
-        QApplication.processEvents()
-        self._adjustScroll()
 
     def mousePressEvent(self, e: QMouseEvent) -> None:
-        # super(MarkdownEdit, self).mousePressEvent(e)
-        # 点击移动 光标
-        old_ast = self.cursor().ast()
-        cursor = self.cursor()
-        view_pos = e.pos() + QPointF(0, self.verticalScrollBar().value())
-        cursor_pos = self._cachePaint.cursorPluginBases(ast=self.cursor().ast(), pos=self.cursor().pos())
-        cursor_pos = cursor_pos + QPointF(0, self.__contentItems[self.cursor().ast()].y())
-        cursor.move(flag=MarkdownCursor.MOVE_MOUSE, pos=view_pos - cursor_pos)
-        cursor.setSelectMode(mode=cursor.SELECT_MODE_SINGLE)
-        cursor.setIsShowCursorShader(True)
-        self.__contentItems[old_ast].reset()
-        self.__contentItems[self.cursor().ast()].reset()
-
-        self.viewport().update()
+        # 左键点击移动 光标
+        if e.button() == Qt.LeftButton:
+            old_ast = self.cursor().ast()
+            cursor = self.cursor()
+            view_pos = e.pos() + QPointF(0, self.verticalScrollBar().value())
+            cursor_pos = self._cachePaint.cursorPluginBases(ast=self.cursor().ast(), pos=self.cursor().pos())
+            cursor_pos = cursor_pos + QPointF(0, self.__contentItems[self.cursor().ast()].y())
+            cursor.move(flag=MarkdownCursor.MOVE_MOUSE, pos=view_pos - cursor_pos)
+            cursor.setSelectMode(mode=cursor.SELECT_MODE_SINGLE)
+            cursor.setIsShowCursorShader(True)
+            self.__contentItems[old_ast].reset()
+            self.__contentItems[self.cursor().ast()].reset()
+            self.viewport().update()
 
     def mouseMoveEvent(self, e: QMouseEvent) -> None:
         # 多选模式
         if e.buttons() == Qt.LeftButton:
+            old_ast = self.cursor().ast()
             cursor = self.cursor()
             if cursor.selectMode() != cursor.SELECT_MODE_MUTIL: cursor.setSelectMode(cursor.SELECT_MODE_MUTIL)
             view_pos = e.pos() + QPointF(0, self.verticalScrollBar().value())
@@ -336,6 +356,8 @@ class MarkdownEdit(QScrollArea):
             cursor.move(flag=MarkdownCursor.MOVE_MOUSE,
                         pos=view_pos - cursor_pos)
             cursor.setIsShowCursorShader(True)
+            self.__contentItems[old_ast].reset()
+            self.__contentItems[self.cursor().ast()].reset()
             self.viewport().update()
 
     def mouseReleaseEvent(self, e: QMouseEvent) -> None:
@@ -345,9 +367,7 @@ class MarkdownEdit(QScrollArea):
         """输入法输入"""
         # 获取当前的候选词
         commitString = event.commitString()
-        if commitString != "":
-            self.cursor().add(event.commitString())
-        self.updateMarkdownItem()
+        if commitString != "": self.cursor().add(event.commitString())
         self.viewport().update()
 
     def inputMethodQuery(self, property: Qt.InputMethodQuery) -> t.Any:
@@ -363,15 +383,14 @@ class MarkdownEdit(QScrollArea):
             return 0
         elif property == Qt.ImhHiddenText:
             return True
-        self.updateMarkdownItem()
+        # self.updateMarkdownItem(updating=False)
         return super().inputMethodQuery(property)
 
     def onCollapseRequestedEvent(self, item: ContentItem):
         """ on collpose requested event """
         root = self.document().ast()
         for ast in root.children[root.index(item.ast()) + 1:]:
-            if ast.isShowCollapseButton():
-                return
+            if ast.isShowCollapseButton(): return
             self.__contentItems[ast].hide() if item.isCollapse() else self.__contentItems[ast].show()
         self._adjustScroll()
 
@@ -392,10 +411,12 @@ class MarkdownEdit(QScrollArea):
                 cursor.setSelectMode(cursor.SELECT_MODE_MUTIL)
             elif not isShiftPressed:
                 cursor.setSelectMode(cursor.SELECT_MODE_SINGLE)
-
             # 移动
+            old_ast = self.cursor().ast()
             cursor.move(MOVE_MODE[e.key()])
             cursor.setIsShowCursorShader(True)
+            self.__contentItems[old_ast].reset()
+            self.__contentItems[self.cursor().ast()].reset()
             self.viewport().update()
         elif e.key() == Qt.Key_Backspace:  # 删除
             if cursor.selectMode() == cursor.SELECT_MODE_SINGLE:
@@ -409,7 +430,7 @@ class MarkdownEdit(QScrollArea):
                 self.pasteFromClipboard()
             elif e.key() == Qt.Key_C:
                 self.copyToClipboard()
-        else:
+        elif e.key() != Qt.Key_Escape:
             # Convert the key to a character based on Shift and Caps Lock status
             if Qt.Key_9 >= e.key() >= Qt.Key_0:  # Numbers 0-9
                 char = str(e.key() - Qt.Key_0)  # Convert to string
@@ -426,19 +447,14 @@ class MarkdownEdit(QScrollArea):
             # 添加
             if char:
                 self.cursor().add(char)
-            print(char)
+            print(char, e.key())
 
         # update ast render
         # if input some new content, the ast will update near the ast of cursor
-        ast_idx = self.document().ast().index(self.cursor().ast())
-        self.updateMarkdownItem()
-        for ast in self.document().ast().children[max(0, ast_idx - 3):ast_idx + 3]:
-            self.__contentItems[ast].reset()
-        self.viewport().update()
+        self.autoUpdateMarkdownItem()
+        # self.viewport().update()
 
         # 观察是否在view中
-        # 调整
-        QApplication.instance().processEvents()  # <---先处理一次事件,获取响应的rect,不然输入事件会不同步
         # 获取 cusor 所在 的ast,以及对应的rect
         pos = self._cachePaint.cursorPluginBases(ast=self.cursor().ast(), pos=self.cursor().pos())
         y = pos.y() + self.__contentItems[self.cursor().ast()].y()
@@ -453,3 +469,6 @@ class MarkdownEdit(QScrollArea):
 
     def cursor(self) -> MarkdownCursor:
         return self._cursor
+
+    def markdownStyle(self)->MarkdownStyle:
+        return self.__style

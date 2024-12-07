@@ -25,9 +25,16 @@ class Link(MarkdownASTBase):
 
     def render(self, ht: AbstructCachePaint, style: MarkdownStyle, cursor: AbstructCursor = None):
         isShowHide = False if cursor is None else cursor.isIn(ast=self)
+
         if isShowHide:
+            ht.painter().save()
+            ht.painter().setFont(style.hintFont(font=ht.painter().font(),ast="link",pseudo="hidden"))
+            ht.painter().setPen(style.hintPen(pen=ht.painter().pen(), ast="link", pseudo="hidden"))
             ht.renderContent(func=ATP.Render_Text, data=self.toMarkdown(), ast=self)
+            ht.painter().restore()
         else:  # <url>
+            ht.painter().setFont(style.hintFont(font=ht.painter().font(), ast="link"))
+            ht.painter().setPen(style.hintPen(pen=ht.painter().pen(), ast="link"))
             ht.renderContent(func=ATP.Render_HideText, data='<', ast=self)
             ht.renderContent(func=ATP.Render_Text, data=''.join(c.toMarkdown() for c in self.children), ast=self)
             ht.renderContent(func=ATP.Render_HideText, data='>', ast=self)

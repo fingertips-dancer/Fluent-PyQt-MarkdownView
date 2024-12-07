@@ -1,5 +1,7 @@
+import typing as t
+
 from PyQt5.QtCore import QMargins, pyqtSignal, QEvent
-from PyQt5.QtGui import QPainter, QPixmap, QResizeEvent, QPaintEvent
+from PyQt5.QtGui import QPainter, QPixmap, QResizeEvent, QPaintEvent,QFont
 from PyQt5.QtWidgets import QWidget, QScrollArea, QListWidgetItem
 
 from .collapse_button import CollapseButton
@@ -30,31 +32,38 @@ class AbstractContentItem(QWidget):
         # set
         self.setAST(ast=ast)
 
-    def setUpItem(self, item: "AbstractContentItem"):
+    def setUpItem(self, item: t.Optional["AbstractContentItem"]):
         # self.move(0, 2000)
         # return
 
         """ set up item """
         if self.__upItem:
             self.__upItem.removeEventFilter(self)
-        item.installEventFilter(self)
-        self.__upItem = item
-        # sync
-        if item.downItem() != self:
-            item.setDownItem(item=self)
-        self.move(0, self.upItem().y() + self.upItem().height())
 
-    def setDownItem(self, item: "AbstractContentItem"):
+        self.__upItem = item
+        if isinstance(item, AbstractContentItem):
+            item.installEventFilter(self)
+            # sync
+            if item.downItem() != self:
+                item.setDownItem(item=self)
+            self.move(0, self.upItem().y() + self.upItem().height())
+
+    def setDownItem(self, item: t.Optional["AbstractContentItem"]):
         # self.move(0, 2000)
         # return
         """ set up item """
         if self.__downItem:
             self.__downItem.removeEventFilter(self)
-        item.installEventFilter(self)
+
         self.__downItem = item
-        # sync
-        if item.upItem() != self:
-            item.setUpItem(item=self)
+        if isinstance(item,AbstractContentItem):
+            item.installEventFilter(self)
+            # sync
+            if item.upItem() != self:
+                item.setUpItem(item=self)
+
+        if self.upItem():
+            self.move(0, self.upItem().y() + self.upItem().height())
 
     def setAST(self, ast: MarkdownASTBase):
         self.__ast = ast
@@ -69,12 +78,20 @@ class AbstractContentItem(QWidget):
     #     if self.__downItem:
     #         self.__downItem.move(0, self.y() + self.height())
     def eventFilter(self, obj, event) -> bool:
+        if event.type() == 16:
+            return False
+        elif event.type() == QEvent.DeferredDelete:  # 销毁
+            if self.upItem() is obj:
+                self.setUpItem(None)
+            elif self.downItem() is obj:
+                self.setDownItem(None)
+            return False
         if self.inViewport() and self.__upItem:
             y = self.__upItem.y() + self.__upItem.height()
             self.move(0, y)
-        elif obj is self.__upItem and event.type() in (QEvent.Paint,QEvent.Resize, QEvent.Move,QEvent.Hide,QEvent.Show):
-            y = self.__upItem.y() + self.__upItem.height()
+        elif obj is self.__upItem and event.type() in (QEvent.Resize, QEvent.Move, QEvent.Hide, QEvent.Show):
             if self.__upItem.inViewport() or self.inViewport():  # <--视图中才更新,防止递归深度太大
+                y = self.__upItem.y() + self.__upItem.height()
                 self.move(0, y)
         return False
 
@@ -111,7 +128,8 @@ class AbstractContentItem(QWidget):
 
     def downItem(self) -> 'AbstractContentItem':
         return self.__downItem
-
+    def markdownStyle(self)->MarkdownStyle:
+       return self.view().markdownStyle()
 
 class ContentItem(AbstractContentItem):
     collapseRequested = pyqtSignal(AbstractContentItem)
@@ -133,6 +151,7 @@ class ContentItem(AbstractContentItem):
     def render_(self):
         temp = QPixmap(10, 10)
         painter = QPainter(temp)
+        painter.setFont(self.markdownStyle().hintFont(font=QFont(),ast='root'))
         # 绘制缓存
         self._cachePaint.reset()
         self._cachePaint.setPainter(painter)
@@ -141,7 +160,7 @@ class ContentItem(AbstractContentItem):
         self._cachePaint.newParagraph()  # 重置段落
 
         # 渲染登记
-        self.ast().render(ht=self._cachePaint, style=MarkdownStyle(), cursor=self.cursor())
+        self.ast().render(ht=self._cachePaint, style=self.markdownStyle(), cursor=self.cursor())
         painter.end()
         del temp, painter
         # 局部更新 不刷新缓存

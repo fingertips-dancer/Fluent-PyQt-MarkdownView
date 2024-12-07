@@ -41,8 +41,14 @@ class ThematicBreak(MarkdownASTBase):
         ht.painter().setFont(style.hintFont(font=ht.painter().font(), ast="blank_line"))
 
         if isShowHide:
+            ht.painter().save()
+            ht.painter().setFont(style.hintFont(font=ht.painter().font(), ast="thematic_break", pseudo="hidden"))
+            ht.painter().setPen(style.hintPen(pen=ht.painter().pen(), ast="thematic_break", pseudo="hidden"))
             ht.renderContent(func=AbstructTextParagraph.Render_Text, data=self.toMarkdown(), ast=self)
+            ht.painter().restore()
         else:
+            ht.painter().setFont(style.hintFont(font=ht.painter().font(), ast="thematic_break"))
+            ht.painter().setPen(style.hintPen(pen=ht.painter().pen(), ast="thematic_break"))
             ht.renderContent(func=AbstructTextParagraph.Render_BlankLine, ast=self)
             ht.renderContent(func=AbstructTextParagraph.Render_HideText, data=self.toMarkdown()[:-1], ast=self)
             ht.renderContent(func=AbstructTextParagraph.Render_SoftBreak, ast=self)
