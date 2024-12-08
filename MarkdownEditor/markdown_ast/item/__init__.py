@@ -14,3 +14,4 @@ from .text import Text, Strong, Emphasis
 from .block_quote import BlockQuote
 from .block_html import BlockHtml
 from .codespan import CodeSpan
+from .table import Table

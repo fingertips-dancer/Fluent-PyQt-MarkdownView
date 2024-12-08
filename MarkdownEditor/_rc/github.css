@@ -20,28 +20,28 @@ h1, h2, h3, h4, h5, h6:hidden {
 }
 
 h1 {
-    font-size: 36px; /* 字体大小 */
+    font-size: 48px; /* 字体大小 */
 }
 
 h2 {
-    font-size: 34px; /* 字体大小 */
+    font-size: 44px; /* 字体大小 */
 }
 
 h3 {
-    font-size: 32px; /* 字体大小 */
+    font-size: 40px; /* 字体大小 */
 }
 
 h4 {
-    font-size: 30px; /* 字体大小 */
+    font-size: 36px; /* 字体大小 */
 }
 
 h5 {
-    font-size: 28px; /* 字体大小 */
+    font-size: 32px; /* 字体大小 */
 }
 
 
 h6 {
-    font-size: 26px; /* 字体大小 */
+    font-size: 28px; /* 字体大小 */
 }
 
 paragraph {

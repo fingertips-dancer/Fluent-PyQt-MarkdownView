@@ -42,4 +42,4 @@ class PreEdit(QObject):
     def replacementStart(self) -> int:
         return self.__replacementStart
     def cursorPos(self) -> int:
-        return self.__cursorPos
+        return self.__cursorPos if len(self.preeditText()) else 0

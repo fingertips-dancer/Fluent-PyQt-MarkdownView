@@ -1,7 +1,27 @@
 import typing as t
 
-from PyQt5.QtCore import QPointF, QTimer, QRectF, QObject, QMargins, pyqtSignal
+from PyQt5.QtCore import QPointF, QTimer, QRectF, QObject, QMargins, pyqtSignal, QPoint, QRect
 from PyQt5.QtGui import QPainter, QPen, QFont, QBrush, QColor, QTextDocument
+
+
+class AbstractMarkdownEdit():
+    def document(self) -> 'AbstractMarkDownDocument':
+        raise NotImplementedError
+
+    def cursor(self) -> 'AbstractMarkdownCursor':
+        raise NotImplementedError
+
+    def cursorMoveTo(self, pos: QPointF) -> None:
+        raise NotImplementedError
+
+    def cursorBases(self, ast, pos: int=None) -> QPoint or t.List[QPoint]:
+        raise NotImplementedError
+
+    def astIn(self, pos: QPoint):
+        raise NotImplementedError
+
+    def geometryOf(self, ast) -> QRect:
+        raise NotImplementedError
 
 
 class AbstractMarkDownDocument(QTextDocument):
@@ -109,7 +129,7 @@ class AbstructCursor(QObject):
 
     def setPos(self, pos: int):
         """ 设置索引 """
-        assert isinstance(pos, (int, str)), ""
+        assert isinstance(pos, (int, str)), f"{pos}"
         if isinstance(pos, int):
             pos = pos
         else:
@@ -143,7 +163,8 @@ class AbstructCursor(QObject):
         """ set position """
         assert ast is not None, ""
         self._ast = ast
-        if pos: self.setPos(pos)
+        if pos is not None:
+            self.setPos(pos)
 
     def isIn(self, ast) -> bool:
         """" 是否在其中"""
@@ -284,6 +305,7 @@ class AbstructTextParagraph():
     def pageMargins(self) -> QMargins:
         """ 绘制边距 """
         return self.__pageMargins
+
     def length(self) -> int:
         """ property: 渲染项 """
         return len(self._cache)

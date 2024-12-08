@@ -1,7 +1,7 @@
 import typing as t
 
-from PyQt5.QtCore import QMargins, pyqtSignal, QEvent
-from PyQt5.QtGui import QPainter, QPixmap, QResizeEvent, QPaintEvent,QFont
+from PyQt5.QtCore import QMargins, pyqtSignal, QEvent, QPoint
+from PyQt5.QtGui import QPainter, QPixmap, QResizeEvent, QPaintEvent, QFont
 from PyQt5.QtWidgets import QWidget, QScrollArea, QListWidgetItem
 
 from .collapse_button import CollapseButton
@@ -56,7 +56,7 @@ class AbstractContentItem(QWidget):
             self.__downItem.removeEventFilter(self)
 
         self.__downItem = item
-        if isinstance(item,AbstractContentItem):
+        if isinstance(item, AbstractContentItem):
             item.installEventFilter(self)
             # sync
             if item.upItem() != self:
@@ -68,15 +68,6 @@ class AbstractContentItem(QWidget):
     def setAST(self, ast: MarkdownASTBase):
         self.__ast = ast
 
-    # def setFixedHeight(self, height: int):
-    #     super(AbstractContentItem, self).setFixedHeight(height)
-    #     if self.__downItem:
-    #         self.__downItem.move(0, self.y() + self.height())
-    #
-    # def move(self, x: int, y: int) -> None:
-    #     super(AbstractContentItem, self).move(x, y)
-    #     if self.__downItem:
-    #         self.__downItem.move(0, self.y() + self.height())
     def eventFilter(self, obj, event) -> bool:
         if event.type() == 16:
             return False
@@ -128,8 +119,10 @@ class AbstractContentItem(QWidget):
 
     def downItem(self) -> 'AbstractContentItem':
         return self.__downItem
-    def markdownStyle(self)->MarkdownStyle:
-       return self.view().markdownStyle()
+
+    def markdownStyle(self) -> MarkdownStyle:
+        return self.view().markdownStyle()
+
 
 class ContentItem(AbstractContentItem):
     collapseRequested = pyqtSignal(AbstractContentItem)
@@ -151,7 +144,7 @@ class ContentItem(AbstractContentItem):
     def render_(self):
         temp = QPixmap(10, 10)
         painter = QPainter(temp)
-        painter.setFont(self.markdownStyle().hintFont(font=QFont(),ast='root'))
+        painter.setFont(self.markdownStyle().hintFont(font=QFont(), ast='root'))
         # 绘制缓存
         self._cachePaint.reset()
         self._cachePaint.setPainter(painter)
@@ -219,3 +212,12 @@ class ContentItem(AbstractContentItem):
 
     def height(self) -> int:
         return 0 if self.isHidden() else super(ContentItem, self).height()
+
+    def cursorBases(self) -> t.List[QPoint]:
+        return self._cachePaint.cursorPluginBases(self.ast())
+
+    def lineHeight(self, pos: int):
+        return self._cachePaint.lineHeight(ast=self.ast(), pos=pos)
+
+    def indentation(self, pos: int):
+        return self._cachePaint.indentation(ast=self.ast(), pos=pos)

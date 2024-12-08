@@ -2,6 +2,7 @@ import typing as t
 
 import mistune
 from mistune.plugins.math import math
+from mistune.plugins.table import table
 
 from .base import MarkdownASTBase
 from ..style import MarkdownStyle
@@ -17,7 +18,7 @@ class MarkdownAstRoot(MarkdownASTBase):
 
         # 创建一个 Markdown 解析器
         # markdown = mistune.create_markdown(renderer="ast")
-        markdown = mistune.create_markdown(renderer="ast", plugins=[math])
+        markdown = mistune.create_markdown(renderer="ast", plugins=[math,table])
         # 解析 Markdown 并获取 AST
         ast = markdown(text)
         self.children = self.parse(ast)

@@ -79,7 +79,7 @@ class MarkdownASTBase():
                     setattr(self, a, attrs.pop(a))
                 except KeyError as e:
                     if not hasattr(self, a):
-                        raise Exception(f"属性<{a}>没有默认参数, 必须设置")
+                        raise Exception(f"{type(self)}:属性<{a}>没有默认参数, 必须设置")
                 except Exception as e:
                     raise e
 

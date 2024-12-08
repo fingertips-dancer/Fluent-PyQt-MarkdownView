@@ -1,10 +1,8 @@
-import time
 import typing as t
 
-from PyQt5.QtCore import QPointF
+from PyQt5.QtCore import QPointF, QPoint
 
-from .abstruct import AbstructCursor, AbstractMarkDownDocument
-from .cache_paint import CachePaint
+from .abstruct import AbstructCursor, AbstractMarkDownDocument, AbstractMarkdownEdit
 from .markdown_ast import Text, MarkdownASTBase, Image, MarkdownAstRoot
 
 
@@ -19,7 +17,11 @@ class MarkdownCursor(AbstructCursor):
 
     def __init__(self, parent):
         super(MarkdownCursor, self).__init__(parent)
-        self._cachePaint: CachePaint = None
+
+    def setAST(self, ast: MarkdownASTBase, pos: int = None):
+        assert isinstance(ast.parent, MarkdownAstRoot), ""
+        assert isinstance(pos, int) or pos is None, ""
+        super(MarkdownCursor, self).setAST(ast=ast, pos=pos)
 
     def add(self, text: str) -> None:
         """添加文本"""
@@ -106,31 +108,31 @@ class MarkdownCursor(AbstructCursor):
             self.setPos(self.pos() + 1)
 
         elif flag == self.MOVE_UP:  # 向上
-            # 偏移
-            bs = self._cachePaint.cursorPluginBases(ast=self.ast())[:self.pos() + 1]
-            y = bs[-1].y()
-            b = next((_b for _b in bs[::-1] if _b.y() < y), None)
-            if b is None:
-                if self.rootAst().astOf(0) is self.ast():  # <-顶部节点
-                    return
-                up_ast = self.rootAst().astOf(idx=self.rootAst().index(self.ast()))
-                y = - self._cachePaint.cachePxiamp(ast=up_ast).height() + \
-                    self._cachePaint.cursorPluginBases(ast=up_ast, pos=-1).y() + 1 - y
-            else:
-                y = b.y() - y + 1
-            self.__moveToPos(pos=QPointF(0, y))
+            bs = self.parent().cursorBases(ast=self.ast())
+            g = self.parent().geometryOf(self.ast())
+            next_ast = self.parent().astIn(pos=g.topRight() + QPoint(-1, -1))
+            next_bs = self.parent().cursorBases(ast=next_ast) if next_ast else []
+            cp = self.parent().cursorBases(ast=self.ast(), pos=self.pos())
+            # all y value
+            ys = {p.y() for p in bs + next_bs}
+            # filter
+            y = max((y for y in ys if y < cp.y()), default=cp.y())
+            self.parent().cursorMoveTo(QPoint(int(cp.x()), int(y)))
 
         elif flag == self.MOVE_DOWN:
-            # 偏移
-            # fint y > y of cursor
-            bs = self._cachePaint.cursorPluginBases(ast=self.ast())[self.pos():]
-            y = bs[0].y()
-            b = next((_b for _b in bs if _b.y() > y), None)
-            y = 1 - y + (self._cachePaint.cachePxiamp(ast=self.ast()).height() if b is None else b.y())
-            self.__moveToPos(pos=QPointF(0, y))
+            bs = self.parent().cursorBases(ast=self.ast())
+            g = self.parent().geometryOf(self.ast())
+            next_ast = self.parent().astIn(pos=g.bottomRight() + QPoint(-1, 1))
+            next_bs = self.parent().cursorBases(ast=next_ast) if next_ast else []
+            cp = self.parent().cursorBases(ast=self.ast(), pos=self.pos())
+            # all y value
+            ys = {p.y() for p in bs + next_bs}
+            # filter
+            y = min((y for y in ys if y > cp.y()), default=cp.y())
+            self.parent().cursorMoveTo(QPoint(int(cp.x()), int(y)))
 
         elif flag == self.MOVE_MOUSE:
-            self.__moveToPos(pos)
+            self.parent().cursorMoveTo(pos)
 
     def removeSelectionContent(self):
         """ 移除选中 """
@@ -186,43 +188,14 @@ class MarkdownCursor(AbstructCursor):
                 else:
                     raise Exception(asts)
 
-    def __moveToPos(self, pos: QPointF):
-        """ 将光标移动 pos(偏移)  """
-        # 1. find target ast
-        y = pos.y() + self._cachePaint.cursorPluginBases(ast=self.ast(), pos=self.pos()).y()
-        x = pos.x() + self._cachePaint.cursorPluginBases(ast=self.ast(), pos=self.pos()).x()
-        if y > 0:
-            for ast in self.rootAst().children[(self.rootAst().index(ast=self.ast())):]:
-                if y < self._cachePaint.cachePxiamp()[ast].height():
-                    break
-                y -= self._cachePaint.cachePxiamp()[ast].height()
-            else:
-                return  # 没有
-        else:
-            for ast in self.rootAst().children[:self.rootAst().index(ast=self.ast())][::-1]:
-                y += self._cachePaint.cachePxiamp()[ast].height()
-                if 0 <= y:
-                    break
-            else:
-                return  # 没有
-
-        bs, t = self._cachePaint.cursorPluginBases(ast=ast), 0
-        for bi, b in enumerate(bs):
-            if b.y() <= y <= b.y() + self._cachePaint.lineHeight(ast, bi):
-                if b.x() >= x:
-                    self.setAST(ast)
-                    self.setPos(bi)
-                    if bi != 0 and x - bs[bi - 1].x() < b.x() - x:
-                        self.setPos(bi - 1)
-                    return
-                elif len(bs) > bi + 1 and b.y() < bs[bi + 1].y():  # 在同一个段落内换行,选择最右侧
-                    self.setAST(ast)
-                    self.setPos(bi)
-                elif len(bs) == bi + 1:
-                    self.setAST(ast)
-                    self.setPos(bi)
-            elif b.y() > y:
-                return
+    def isIn(self, ast: MarkdownASTBase):
+        """ 是否在这个节点中"""
+        if not (self.ast().isChild(ast) or self.ast() is ast):
+            return False
+        p_markdown = self.ast().toMarkdown()
+        sub_markdown = ast.toMarkdown()
+        return sub_markdown in p_markdown[max(0, self.pos() - len(sub_markdown)):
+                                          min(self.pos() + len(sub_markdown), len(p_markdown))]
 
     def ast(self) -> MarkdownASTBase:
         return super(MarkdownCursor, self).ast()
@@ -231,19 +204,8 @@ class MarkdownCursor(AbstructCursor):
         """ root ast """
         return self.ast().parent
 
-    def setAST(self, ast: MarkdownASTBase, pos: int = None):
-        assert isinstance(ast.parent, MarkdownAstRoot), ""
-        assert isinstance(pos, int) or pos is None, ""
-        super(MarkdownCursor, self).setAST(ast=ast, pos=pos)
-
-    def isIn(self, ast: MarkdownASTBase):
-        """ 是否在这个节点中"""
-        if not (self.ast().isChild(ast) or self.ast() is ast):
-            return
-        p_markdown = self.ast().toMarkdown()
-        sub_markdown = ast.toMarkdown()
-        return sub_markdown in p_markdown[max(0, self.pos() - len(sub_markdown)):
-                                          min(self.pos() + len(sub_markdown), len(p_markdown))]
-
-    def parent(self) -> AbstractMarkDownDocument:
+    def parent(self) -> AbstractMarkdownEdit:
         return super(MarkdownCursor, self).parent()
+
+    def document(self) -> AbstractMarkDownDocument:
+        return self.parent().document()

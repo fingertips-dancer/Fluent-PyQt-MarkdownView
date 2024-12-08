@@ -166,14 +166,11 @@ class CachePaint(AbstructCachePaint):
             return self._cacheCursorPluginBases[ast]
 
     def lineHeight(self, ast, pos: int) -> int:
-        ps = self.textParagraphs(ast=ast)
-        for p in ps:
-            if pos > len(p.cursorBases()):
-                pos -= len(p.cursorBases())
-                continue
+        p = self.textParagraphs(ast=ast,pos=pos)
+        if p:
             return p.lineHeight()
         else:
-            raise Exception(sum(len(p.cursorBases()) for p in self.textParagraphs(ast)), "but", pos)
+            raise Exception(ast,sum(len(p.cursorBases()) for p in self.textParagraphs(ast)), "but", pos)
 
     def indentation(self, ast, pos: int) -> int:
         ps = self.textParagraphs(ast=ast)
