@@ -1,7 +1,7 @@
 import typing as t
 
 from PyQt5.QtCore import QMargins, pyqtSignal, QEvent, QPoint
-from PyQt5.QtGui import QPainter, QPixmap, QResizeEvent, QPaintEvent, QFont
+from PyQt5.QtGui import QPainter, QPixmap, QResizeEvent, QPaintEvent, QFont,QMouseEvent
 from PyQt5.QtWidgets import QWidget, QScrollArea, QListWidgetItem
 
 from .collapse_button import CollapseButton
@@ -85,6 +85,14 @@ class AbstractContentItem(QWidget):
                 y = self.__upItem.y() + self.__upItem.height()
                 self.move(0, y)
         return False
+
+    def enterEvent(self, event) -> None:
+        super(AbstractContentItem, self).enterEvent(event)
+        self.setMouseTracking(True)  # mouse tracking
+
+    def leaveEvent(self, event) -> None:
+        super(AbstractContentItem, self).leaveEvent(event)
+        self.setMouseTracking(False)  # mouse tracking
 
     def pageMargins(self) -> QMargins:
         margins = self.view()._margins
@@ -213,8 +221,8 @@ class ContentItem(AbstractContentItem):
     def height(self) -> int:
         return 0 if self.isHidden() else super(ContentItem, self).height()
 
-    def cursorBases(self) -> t.List[QPoint]:
-        return self._cachePaint.cursorPluginBases(self.ast())
+    def cursorBases(self,returnAst=False) -> t.List[QPoint] or t.List[t.Tuple[MarkdownASTBase,QPoint]]:
+        return self._cachePaint.cursorPluginBases(self.ast(),returnAst=returnAst)
 
     def lineHeight(self, pos: int):
         return self._cachePaint.lineHeight(ast=self.ast(), pos=pos)

@@ -44,16 +44,19 @@ class TextParagraph(AbstructTextParagraph):
         sPos = self.paintPoint() + QPointF(0, 0)
 
         # 1.render
+        # 1. memorize the cursor of different ast, to cal rect of ast
         if self.backgroundEnable():
             self.setStartY(self.backgroundMargins().top())
 
         for method, data, ast, font, brush, pen in self._cache:
+            self.registerNowPaintingAstGeometry(ast=ast)
+            # render
             painter.setPen(pen)
             painter.setFont(font)
             painter.setBrush(brush)
             method(self, data=data, ast=ast, painter=painter)
 
-        # 绘制背景
+        # 3. 绘制背景
         if self.backgroundEnable():
             _pixmap = pixmap.copy(QRectF(0, 0, self.viewWdith(), self.paintPoint().y()).toRect())
             pixmap.fill(QColor(0, 0, 0, 0))

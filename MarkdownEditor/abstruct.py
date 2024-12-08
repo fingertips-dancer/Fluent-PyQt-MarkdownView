@@ -14,7 +14,7 @@ class AbstractMarkdownEdit():
     def cursorMoveTo(self, pos: QPointF) -> None:
         raise NotImplementedError
 
-    def cursorBases(self, ast, pos: int=None) -> QPoint or t.List[QPoint]:
+    def cursorBases(self, ast, pos: int = None) -> QPoint or t.List[QPoint]:
         raise NotImplementedError
 
     def astIn(self, pos: QPoint):
@@ -224,10 +224,11 @@ class AbstructTextParagraph():
         self.__pageMargins: QMargins = QMargins()
         self.__outPragraphReutrnSpace = 15
         self.__inPragraphReutrnSpace = 10
+        self.__now_painting_ast = None
         self.__lineHight: int = None  # 一行的高度
         self.__painter_pos = QPointF()  # 绘制坐标
         self.__paragraph_ast: 'MarkdownASTBase' = None  # 段落的根节点
-        self.__cursor_bases: t.List[QPointF] = []  # 光标的位置
+        self.__cursor_bases: t.List[t.Tuple["MarkdownASTBase", QPointF]] = []  # 光标的位置
 
         # only
         self.__indentation = 0  # 缩进
@@ -240,9 +241,12 @@ class AbstructTextParagraph():
         """ clear all cursor base"""
         self.__cursor_bases.clear()
 
+    def registerNowPaintingAstGeometry(self, ast):
+        self.__now_painting_ast = ast
+
     def addCursorBase(self, pos):
         """ add a cursor base"""
-        self.__cursor_bases.append(pos)
+        self.__cursor_bases.append((self.__now_painting_ast, pos))
 
     def setPaintPoint(self, pos):
         """ 绘制点 """
@@ -322,11 +326,11 @@ class AbstructTextParagraph():
         """ ast """
         return self.__paragraph_ast
 
-    def cursorBaseof(self, idx) -> QPointF:
+    def cursorBaseof(self, idx) -> t.Tuple["MarkdownASTBase", QPointF]:
         """ 位于 idx 的 cursor 位置 """
         return self.__cursor_bases[idx]
 
-    def cursorBases(self) -> t.List[QPointF]:
+    def cursorBases(self) -> t.List[t.Tuple["MarkdownASTBase", QPointF]]:
         """ 所有 cursor 位置 """
         return self.__cursor_bases
 
@@ -360,6 +364,9 @@ class AbstructTextParagraph():
 
     def backgroundMargins(self) -> QMargins:
         return self.__backgroundMargins
+
+    def astGeometries(self) -> t.Dict["MarkdownAstBase", QRect]:
+        return self.__ast_geometry
 
 
 class AbstructCachePaint():

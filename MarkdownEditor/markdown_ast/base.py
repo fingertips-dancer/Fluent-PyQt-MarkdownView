@@ -1,5 +1,7 @@
 import typing as t
 
+from PyQt5.QtCore import Qt
+
 from ..abstruct import AbstructCachePaint
 from ..abstruct import AbstructCursor
 from ..style import MarkdownStyle
@@ -182,3 +184,11 @@ class MarkdownASTBase():
         if idx + 1 >= len(self.parent.children):
             return None
         return self.parent.children[idx + 1]
+
+    def hintCursorShape(self, cursor: AbstructCursor) -> int or None:
+        """ if cursor is in the painter geometry of ast, it can set the cursor shape in this function """
+        return Qt.IBeamCursor
+
+    def customInteraction(self, cursor: AbstructCursor):
+        """ You can define action in this function"""
+        return False

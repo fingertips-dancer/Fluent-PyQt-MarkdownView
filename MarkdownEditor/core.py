@@ -127,6 +127,8 @@ class MarkdownEdit(QScrollArea, AbstractMarkdownEdit):
         super().__init__()
         # 允许输入法
         self.setAttribute(Qt.WA_InputMethodEnabled, True)
+        # 鼠标追踪
+        self.setMouseTracking(True)
         # self.setAcceptRichText(False)
         self.scrollDelegate = SmoothScrollDelegate(self)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -148,9 +150,9 @@ class MarkdownEdit(QScrollArea, AbstractMarkdownEdit):
         self.loadProgressBar.show()
         self.__w = Container(self)
         self.setWidget(self.__w)
-        self.setWidgetResizable(True)
+        self.__w.setMouseTracking(True)  # 鼠标追踪
         self.viewport().setStyleSheet("background-color:transparent;")
-
+        self.setWidgetResizable(True)
         # menu
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self._show_menu)
@@ -237,6 +239,7 @@ class MarkdownEdit(QScrollArea, AbstractMarkdownEdit):
 
     def cursorMoveTo(self, pos: t.Union[QPointF, QPoint]) -> None:
         """ overload """
+
         ast, pos = self.cursorBaseIn(pos=pos)
         if pos is not None:
             self.cursor().setAST(ast=ast, pos=pos)
@@ -319,20 +322,26 @@ class MarkdownEdit(QScrollArea, AbstractMarkdownEdit):
 
     def mousePressEvent(self, e: QMouseEvent) -> None:
         # 左键点击移动 光标
+        view_pos = e.pos() + QPointF(0, self.verticalScrollBar().value())
+        cursor = self.cursor()
         if e.button() == Qt.LeftButton:
-            old_ast = self.cursor().ast()
-            cursor = self.cursor()
-            view_pos = e.pos() + QPointF(0, self.verticalScrollBar().value())
-            cursor.move(flag=MarkdownCursor.MOVE_MOUSE, pos=view_pos)
-            cursor.setSelectMode(mode=cursor.SELECT_MODE_SINGLE)
-            cursor.setIsShowCursorShader(True)
-            self.__contentItems[old_ast].reset()
-            self.__contentItems[self.cursor().ast()].reset()
-            self.viewport().update()
+            ast, pos = self.cursorBaseIn(pos=view_pos)
+            if pos is not None:#<--有内容
+                old_ast = self.cursor().ast()
+                item = self.__contentItems[ast]
+                end_ast, p = item.cursorBases(returnAst=True)[pos]
+                if end_ast.customInteraction(cursor=self.cursor()):#自定义行为,执行完成后判断是否执行自动操作
+                    return
+                cursor.move(flag=MarkdownCursor.MOVE_MOUSE, pos=view_pos)
+                cursor.setSelectMode(mode=cursor.SELECT_MODE_SINGLE)
+                self.__contentItems[old_ast].reset()
+                self.__contentItems[self.cursor().ast()].reset()
+                self.viewport().update()
+
 
     def mouseMoveEvent(self, e: QMouseEvent) -> None:
         view_pos = e.pos() + QPointF(0, self.verticalScrollBar().value())
-        if e.buttons() == Qt.LeftButton:# 按下左键拖动
+        if e.buttons() == Qt.LeftButton:  # 按下左键拖动
             old_ast = self.cursor().ast()
             cursor = self.cursor()
             if cursor.selectMode() != cursor.SELECT_MODE_MUTIL: cursor.setSelectMode(cursor.SELECT_MODE_MUTIL)
@@ -341,10 +350,14 @@ class MarkdownEdit(QScrollArea, AbstractMarkdownEdit):
             self.__contentItems[old_ast].reset()
             self.__contentItems[self.cursor().ast()].reset()
             self.viewport().update()
-        elif e.buttons() == Qt.NoButton:#<---没有点击
+        elif e.buttons() == Qt.NoButton:  # <---没有点击
             ast, pos = self.cursorBaseIn(pos=view_pos)
-        # 2. modify curosr style
-        self.setCursor(Qt.IBeamCursor)
+            if pos is not None:
+                item = self.__contentItems[ast]
+                end_ast, p = item.cursorBases(returnAst=True)[pos]
+                self.setCursor(end_ast.hintCursorShape(cursor=self.cursor()))
+
+
 
     def mouseReleaseEvent(self, e: QMouseEvent) -> None:
         pass
@@ -475,7 +488,7 @@ class MarkdownEdit(QScrollArea, AbstractMarkdownEdit):
         """ overload """
         if isinstance(pos, QPointF): pos = pos.toPoint()
         item: ContentItem = self.__w.childAt(pos)
-        if not isinstance(item, ContentItem): return
+        if not isinstance(item, ContentItem): return None, None
         # filter the cursor of 'y < pos'
         in_pos = pos - item.pos()
         cursorBases = [(i, p) for i, p in enumerate(item.cursorBases()) if p.y() <= in_pos.y()]

@@ -1,14 +1,14 @@
 import typing as t
 
-from PyQt5.QtCore import QMargins
+from PyQt5.QtCore import QMargins, QRect
 from PyQt5.QtCore import QPointF
 from PyQt5.QtGui import QPainter, QImage, QColor, QPixmap
 
 # from .cursor import MarkdownCursor
 from .abstruct import AbstractMarkDownDocument
 from .abstruct import AbstructCachePaint
-from .markdown_ast import MarkdownASTBase
 from .component import TextParagraph
+from .markdown_ast import MarkdownASTBase
 
 
 def paintMemory(func):
@@ -46,6 +46,8 @@ class CachePaint(AbstructCachePaint):
         self._cacheCursorPluginBases: t.Dict[MarkdownASTBase, t.List[QPointF]] = {}
         # cache TextParagraph
         self._cacheTextParagraphs: t.Dict[MarkdownASTBase, t.List[TextParagraph]] = {}
+        # cache ast geometry drawing
+        self._cachePaintingGeometry: t.Dict[MarkdownASTBase, QRect] = {}
 
     def renderContent(self, func, ast: MarkdownASTBase, data=None):
         self._paragraphs[-1].pullRenderCache(func=func, data=data, painter=self.painter(), ast=ast)
@@ -64,11 +66,14 @@ class CachePaint(AbstructCachePaint):
         ast_part_pixmaps = []
         ast_part_CursorPluginBases = []
         ast_part_TextParagraphs = []
+        ast_part_PaintingGeometry = {}
         now_ast = None
         if resetCache:
             self._cachePxiamp.clear()
             self._cacheCursorPluginBases.clear()
             self._cacheTextParagraphs.clear()
+            self.cachePxiamp().clear()
+            self._cachePaintingGeometry.clear()
 
         for p in self._paragraphs:
             p.setInPragraphReutrnSpace(self._inPragraphReutrnSpace)
@@ -91,7 +96,7 @@ class CachePaint(AbstructCachePaint):
                     pbs, y = [], 0
                     for mp, part_CursorPluginBases in zip(ast_part_pixmaps, ast_part_CursorPluginBases):
                         offest = QPointF(0, y)
-                        pbs += [b + offest for b in part_CursorPluginBases]
+                        pbs += [(ast, b + offest) for ast, b in part_CursorPluginBases]
                         y += mp.height()
 
                 elif len(ast_part_pixmaps) == 1:
@@ -110,6 +115,7 @@ class CachePaint(AbstructCachePaint):
             ast_part_pixmaps.append(pximap_part)
             ast_part_CursorPluginBases.append(p.cursorBases())
             ast_part_TextParagraphs.append(p)
+
             # update
             now_ast = p.ast()
         return self._cachePxiamp
@@ -133,7 +139,6 @@ class CachePaint(AbstructCachePaint):
 
     def setMargins(self, margins):
         self._margins = margins
-
 
     def painter(self) -> QPainter:
         return self._painter
@@ -159,18 +164,20 @@ class CachePaint(AbstructCachePaint):
     def height(self) -> int:
         return sum(pm.height() for pm in self._cachePxiamp.values())
 
-    def cursorPluginBases(self, ast, pos: t.Optional[int] = None) -> t.Union[QPointF, t.List[QPointF]]:
-        if pos is not None:
-            return self._cacheCursorPluginBases[ast][pos]
-        else:
-            return self._cacheCursorPluginBases[ast]
+    def cursorPluginBases(self, ast,
+                          pos: t.Optional[int] = None,
+                          returnAst: bool = False) -> t.Union[QPointF, t.List[QPointF]]:
+
+        cps = self._cacheCursorPluginBases[ast] if returnAst else [p for ast, p in self._cacheCursorPluginBases[ast]]
+        return cps[pos] if pos is not None else cps
+
 
     def lineHeight(self, ast, pos: int) -> int:
-        p = self.textParagraphs(ast=ast,pos=pos)
+        p = self.textParagraphs(ast=ast, pos=pos)
         if p:
             return p.lineHeight()
         else:
-            raise Exception(ast,sum(len(p.cursorBases()) for p in self.textParagraphs(ast)), "but", pos)
+            raise Exception(ast, sum(len(p.cursorBases()) for p in self.textParagraphs(ast)), "but", pos)
 
     def indentation(self, ast, pos: int) -> int:
         ps = self.textParagraphs(ast=ast)
@@ -179,3 +186,6 @@ class CachePaint(AbstructCachePaint):
                 pos -= len(p.cursorBases())
                 continue
             return p.indentation()
+
+    def paintGeometry(self, ast) -> QRect:
+        pass
