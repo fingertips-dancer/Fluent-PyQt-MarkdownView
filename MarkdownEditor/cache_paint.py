@@ -27,7 +27,7 @@ class CachePaint(AbstructCachePaint):
     def __init__(self, parent):
         super(CachePaint, self).__init__(parent)
         # 垂直距离
-        self._parent: AbstractMarkDownDocument = parent
+        # self._parent: AbstractMarkDownDocument = parent
         self._verticalSpace: int = 10
         self._painter: QPainter = None
         self._painter_pos: QMargins = None

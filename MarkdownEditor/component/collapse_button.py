@@ -1,4 +1,4 @@
-from PyQt5.QtCore import QRectF
+from PyQt5.QtCore import QRectF,Qt
 from PyQt5.QtGui import QPainter
 from qfluentwidgets import FluentIcon as FIF
 from qfluentwidgets import TransparentToolButton, isDarkTheme
@@ -24,6 +24,9 @@ class CollapseButton(TransparentToolButton):
 
     def _drawIcon(self, icon, painter: QPainter, rect: QRectF):
         pass
+    def enterEvent(self, e):
+        super(CollapseButton, self).enterEvent(e)
+        self.setCursor(Qt.CursorShape.ArrowCursor)
 
     def paintEvent(self, e):
         super().paintEvent(e)

@@ -68,23 +68,25 @@ class AbstractContentItem(QWidget):
     def setAST(self, ast: MarkdownASTBase):
         self.__ast = ast
 
-    def eventFilter(self, obj, event) -> bool:
-        if event.type() == 16:
-            return False
-        elif event.type() == QEvent.DeferredDelete:  # 销毁
-            if self.upItem() is obj:
-                self.setUpItem(None)
-            elif self.downItem() is obj:
-                self.setDownItem(None)
-            return False
-        if self.inViewport() and self.__upItem:
-            y = self.__upItem.y() + self.__upItem.height()
-            self.move(0, y)
-        elif obj is self.__upItem and event.type() in (QEvent.Resize, QEvent.Move, QEvent.Hide, QEvent.Show):
-            if self.__upItem.inViewport() or self.inViewport():  # <--视图中才更新,防止递归深度太大
-                y = self.__upItem.y() + self.__upItem.height()
-                self.move(0, y)
-        return False
+    # def eventFilter(self, obj, event) -> bool:
+    #     if event.type() == 16:
+    #         return False
+    #     elif event.type() == QEvent.DeferredDelete:  # 销毁
+    #         if self.upItem() is obj:
+    #             self.setUpItem(None)
+    #         elif self.downItem() is obj:
+    #             self.setDownItem(None)
+    #         return False
+    #     elif not self.inViewport():
+    #         return False
+    #     if self.inViewport() and self.__upItem:
+    #         y = self.__upItem.y() + self.__upItem.height()
+    #         self.move(0, y)
+    #     elif obj is self.__upItem and event.type() in (QEvent.Resize, QEvent.Move, QEvent.Hide, QEvent.Show):
+    #         if self.__upItem.inViewport() or self.inViewport():  # <--视图中才更新,防止递归深度太大
+    #             y = self.__upItem.y() + self.__upItem.height()
+    #             self.move(0, y)
+    #     return False
 
     def enterEvent(self, event) -> None:
         super(AbstractContentItem, self).enterEvent(event)
@@ -112,9 +114,7 @@ class AbstractContentItem(QWidget):
         view = w.viewport()
         t = w.verticalScrollBar().value()
         b = w.verticalScrollBar().value() + view.height()
-        return (t < self.y() < b) or \
-               (t < self.y() + self.height() < b) or \
-               (self.y() < t < b < self.y() + self.height())
+        return (self.geometry().bottom() >= t) and self.y() <= b
 
     def viewpot(self) -> QWidget:
         return self.view().viewport()
@@ -131,11 +131,15 @@ class AbstractContentItem(QWidget):
     def markdownStyle(self) -> MarkdownStyle:
         return self.view().markdownStyle()
 
+    def render_(self):
+        raise NotImplementedError
+
 
 class ContentItem(AbstractContentItem):
     collapseRequested = pyqtSignal(AbstractContentItem)
 
     def __init__(self, parent, cachePaint: CachePaint, ast: MarkdownASTBase):
+        self.__renderWidth = 0
         self.__callopseButton: CollapseButton = None
         super(ContentItem, self).__init__(parent=parent, cachePaint=cachePaint, ast=ast)
         self.__listItem = ListItem(ast=ast)
@@ -153,6 +157,7 @@ class ContentItem(AbstractContentItem):
         temp = QPixmap(10, 10)
         painter = QPainter(temp)
         painter.setFont(self.markdownStyle().hintFont(font=QFont(), ast='root'))
+        self.__renderWidth = self.width()
         # 绘制缓存
         self._cachePaint.reset()
         self._cachePaint.setPainter(painter)
@@ -186,7 +191,6 @@ class ContentItem(AbstractContentItem):
             super(ContentItem, self).resizeEvent(event)
         else:
             pass
-        return
 
     def paintEvent(self, event: QPaintEvent) -> None:
         super(ContentItem, self).paintEvent(event)
@@ -225,7 +229,13 @@ class ContentItem(AbstractContentItem):
         return self._cachePaint.cursorPluginBases(self.ast(),returnAst=returnAst)
 
     def lineHeight(self, pos: int):
+        if self._pixmapCache is None:
+            self.render_()
         return self._cachePaint.lineHeight(ast=self.ast(), pos=pos)
 
     def indentation(self, pos: int):
         return self._cachePaint.indentation(ast=self.ast(), pos=pos)
+
+    def renderWidth(self)->int:
+        """ 绘制是使用的 width"""
+        return self.__renderWidth

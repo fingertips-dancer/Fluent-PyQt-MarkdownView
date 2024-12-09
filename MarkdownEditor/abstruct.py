@@ -23,6 +23,9 @@ class AbstractMarkdownEdit():
     def geometryOf(self, ast) -> QRect:
         raise NotImplementedError
 
+    def document(self, ast) -> 'AbstractMarkDownDocument':
+        raise NotImplementedError
+
 
 class AbstractMarkDownDocument(QTextDocument):
     textChanged = pyqtSignal()
@@ -61,7 +64,10 @@ class AbstractMarkDownDocument(QTextDocument):
         self._inViewItem = []
 
     def textParagraphs(self) -> t.List['AbstructTextParagraph']:
-        raise ImportError
+        raise NotImplementedError
+
+    def ast(self):
+        raise NotImplementedError
 
 
 class AbstructCursor(QObject):
@@ -372,7 +378,7 @@ class AbstructTextParagraph():
 class AbstructCachePaint():
     def __init__(self, parent):
         # 垂直距离
-        self._parent: AbstractMarkDownDocument = parent
+        # self._parent: AbstractMarkDownDocument = parent
         self._verticalSpace: int = 10
         self._painter: QPainter = None
         self._painter_pos: QMargins = None
