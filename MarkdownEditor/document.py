@@ -1,6 +1,6 @@
 from .abstruct import AbstractMarkDownDocument
-from .markdown_ast import MarkdownAstRoot
-
+from .markdown_ast import MarkdownAstRoot,MarkdownASTBase
+from PyQt5.QtWidgets import QApplication
 
 class MarkDownDocument(AbstractMarkDownDocument):
     def __init__(self):
@@ -12,6 +12,8 @@ class MarkDownDocument(AbstractMarkDownDocument):
         self.__markdownAst = MarkdownAstRoot()
         self.__markdownAst.setText(markdown)
         print(self.__markdownAst.summary())
+
+
 
     def toMarkdown(self) -> str:
         return self.__markdownAst.toMarkdown()

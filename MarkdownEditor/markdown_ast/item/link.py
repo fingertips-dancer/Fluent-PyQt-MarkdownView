@@ -36,9 +36,15 @@ class Link(MarkdownASTBase):
         else:  # <url>
             ht.painter().setFont(style.hintFont(font=ht.painter().font(), ast="link"))
             ht.painter().setPen(style.hintPen(pen=ht.painter().pen(), ast="link"))
-            ht.renderContent(func=ATP.Render_HideText, data='<', ast=self)
-            ht.renderContent(func=ATP.Render_Text, data=''.join(c.toMarkdown() for c in self.children), ast=self)
-            ht.renderContent(func=ATP.Render_HideText, data='>', ast=self)
+            raw = ''.join(c.toMarkdown() for c in self.children)
+            if raw == self.url:
+                ht.renderContent(func=ATP.Render_HideText, data='<', ast=self)
+                ht.renderContent(func=ATP.Render_Text, data=raw, ast=self)
+                ht.renderContent(func=ATP.Render_HideText, data='>', ast=self)
+            else:
+                ht.renderContent(func=ATP.Render_HideText, data='[', ast=self)
+                ht.renderContent(func=ATP.Render_Text, data=raw, ast=self)
+                ht.renderContent(func=ATP.Render_HideText, data=f"]({self.url})", ast=self)
 
         # ht.text(text=self.toMarkdown(), ast=self)
 

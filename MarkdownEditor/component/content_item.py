@@ -1,7 +1,7 @@
 import typing as t
 
-from PyQt5.QtCore import QMargins, pyqtSignal, QEvent, QPoint
-from PyQt5.QtGui import QPainter, QPixmap, QResizeEvent, QPaintEvent, QFont,QMouseEvent
+from PyQt5.QtCore import QMargins, pyqtSignal, QPoint
+from PyQt5.QtGui import QPainter, QPixmap, QResizeEvent, QPaintEvent, QFont
 from PyQt5.QtWidgets import QWidget, QScrollArea, QListWidgetItem
 
 from .collapse_button import CollapseButton
@@ -46,7 +46,6 @@ class AbstractContentItem(QWidget):
             # sync
             if item.downItem() != self:
                 item.setDownItem(item=self)
-            self.move(0, self.upItem().y() + self.upItem().height())
 
     def setDownItem(self, item: t.Optional["AbstractContentItem"]):
         # self.move(0, 2000)
@@ -62,31 +61,8 @@ class AbstractContentItem(QWidget):
             if item.upItem() != self:
                 item.setUpItem(item=self)
 
-        if self.upItem():
-            self.move(0, self.upItem().y() + self.upItem().height())
-
     def setAST(self, ast: MarkdownASTBase):
         self.__ast = ast
-
-    # def eventFilter(self, obj, event) -> bool:
-    #     if event.type() == 16:
-    #         return False
-    #     elif event.type() == QEvent.DeferredDelete:  # 销毁
-    #         if self.upItem() is obj:
-    #             self.setUpItem(None)
-    #         elif self.downItem() is obj:
-    #             self.setDownItem(None)
-    #         return False
-    #     elif not self.inViewport():
-    #         return False
-    #     if self.inViewport() and self.__upItem:
-    #         y = self.__upItem.y() + self.__upItem.height()
-    #         self.move(0, y)
-    #     elif obj is self.__upItem and event.type() in (QEvent.Resize, QEvent.Move, QEvent.Hide, QEvent.Show):
-    #         if self.__upItem.inViewport() or self.inViewport():  # <--视图中才更新,防止递归深度太大
-    #             y = self.__upItem.y() + self.__upItem.height()
-    #             self.move(0, y)
-    #     return False
 
     def enterEvent(self, event) -> None:
         super(AbstractContentItem, self).enterEvent(event)
@@ -141,6 +117,7 @@ class ContentItem(AbstractContentItem):
     def __init__(self, parent, cachePaint: CachePaint, ast: MarkdownASTBase):
         self.__renderWidth = 0
         self.__callopseButton: CollapseButton = None
+        self.__isCollapsing = False
         super(ContentItem, self).__init__(parent=parent, cachePaint=cachePaint, ast=ast)
         self.__listItem = ListItem(ast=ast)
 
@@ -152,6 +129,9 @@ class ContentItem(AbstractContentItem):
         elif not ast.isShowCollapseButton() and self.__callopseButton is not None:
             self.__callopseButton.deleteLater()
             self.__callopseButton = None
+
+    def setIsCollapsing(self, _is: bool) -> bool:
+        self.__isCollapsing = _is
 
     def render_(self):
         temp = QPixmap(10, 10)
@@ -193,23 +173,20 @@ class ContentItem(AbstractContentItem):
             pass
 
     def paintEvent(self, event: QPaintEvent) -> None:
+        if self.isCollapsing():
+            return
         super(ContentItem, self).paintEvent(event)
         if not isinstance(self._pixmapCache, QPixmap) or self.viewpot().width() != self.width():
             self.setFixedWidth(self.viewpot().width())
             self.render_()
+
+
         try:
             painter = QPainter(self)
             painter.drawPixmap(0, 0, self._pixmapCache)
             painter.end()
         except:
             print(self._pixmapCache)
-
-    def isCollapse(self) -> bool:
-        """ 是否折叠 """
-        return self.__callopseButton.isCollapse()
-
-    def listItem(self) -> ListItem:
-        return self.__listItem
 
     def show(self) -> None:
         super(ContentItem, self).show()
@@ -225,8 +202,15 @@ class ContentItem(AbstractContentItem):
     def height(self) -> int:
         return 0 if self.isHidden() else super(ContentItem, self).height()
 
-    def cursorBases(self,returnAst=False) -> t.List[QPoint] or t.List[t.Tuple[MarkdownASTBase,QPoint]]:
-        return self._cachePaint.cursorPluginBases(self.ast(),returnAst=returnAst)
+    def isCollapseSubItem(self) -> bool:
+        """ 是否折叠 """
+        return self.__callopseButton.isCollapse()
+
+    def isCollapsing(self) -> bool:
+        return self.__isCollapsing
+
+    def cursorBases(self, returnAst=False) -> t.List[QPoint] or t.List[t.Tuple[MarkdownASTBase, QPoint]]:
+        return self._cachePaint.cursorPluginBases(self.ast(), returnAst=returnAst)
 
     def lineHeight(self, pos: int):
         if self._pixmapCache is None:
@@ -236,6 +220,9 @@ class ContentItem(AbstractContentItem):
     def indentation(self, pos: int):
         return self._cachePaint.indentation(ast=self.ast(), pos=pos)
 
-    def renderWidth(self)->int:
+    def renderWidth(self) -> int:
         """ 绘制是使用的 width"""
         return self.__renderWidth
+
+    def setFixedHeight(self, h: int) -> None:
+        super(ContentItem, self).setFixedHeight(0 if self.isCollapsing() else h)
