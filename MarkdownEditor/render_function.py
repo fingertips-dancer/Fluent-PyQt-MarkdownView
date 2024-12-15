@@ -1,5 +1,6 @@
 import io
 import os
+import re
 import typing as t
 
 import matplotlib.font_manager as mfm
@@ -9,10 +10,11 @@ from PyQt5.QtGui import QPainter, QFontMetrics, QImage, QColor
 from PyQt5.QtSvg import QSvgRenderer
 from matplotlib.mathtext import MathTextParser
 
+from .abstruct import BlockLayer
+from .component import TextParagraph
 # from .cursor import MarkdownCursor
 from .markdown_ast import MarkdownASTBase
-from .component import TextParagraph
-import re
+
 
 class ImageRender():
     latexPool = {}
@@ -269,3 +271,54 @@ def renderInlineLatexText(tp: TextParagraph, data: str, ast: MarkdownASTBase, pa
     # 自动添加 &
     # 如果不是在边距上,另开一行渲染
     renderText(tp=tp, data="$" + data + "$", ast=ast, painter=painter)
+
+
+@TextParagraph.registerRenderFunction(TextParagraph.Render_ParagraphLayer)
+def renderParagraphLayer(tp: TextParagraph, data: BlockLayer, ast: MarkdownASTBase, painter: QPainter,
+                         deep=0):
+    # 1. 判断是否位于可绘制的最左侧
+    sPos, ePos = tp.paintPoint(), tp.paintPoint()
+    # 2. 根据方向确定参数
+    width = int(tp.viewWdith() - sPos.x() - tp.margins().right())
+    if data.orientation() == Qt.Vertical:
+        width = [width] * data.count()
+    else:
+        num = sum(data.stretchs())  # <---设置width 方向个格列占比
+        width = [int(width / num * s) for s in data.stretchs()]
+    for i, w in zip(range(data.count()), width):
+        item = data.itemAt(i)
+        if isinstance(item, TextParagraph):
+            # 1. temp transform to other painter
+            ori_device = painter.device()
+            painter.end()
+
+            # 2. set render-param and render
+            item.setViewWdith(width=w)
+            pixmap = item.render()
+            # 3. render in ori image
+            # 3.1 register
+            painter.begin(ori_device)
+            if pixmap.height() != 0:
+                painter.drawPixmap(tp.paintPoint(), pixmap)
+                tp.addCursorBase(pos=[b + tp.paintPoint() for _, b in item.cursorBases()])
+                p = QPointF(pixmap.width() if data.orientation() == Qt.Horizontal else 0,
+                            pixmap.height() if data.orientation() == Qt.Vertical else 0)
+                ePos = QPointF(pixmap.width() + tp.paintPoint().x(),
+                               max(tp.paintPoint().y() + pixmap.height(), ePos.y()))
+                tp.setPaintPoint(pos=tp.paintPoint() + p)
+
+
+        elif isinstance(item, BlockLayer):
+            rect: QRectF = renderParagraphLayer(tp=tp, data=item, ast=ast, painter=painter, deep=deep + 1)
+            ePos = rect.bottomRight()
+            # 更新绘制坐标
+            tp.setPaintPoint(pos=(sPos.x(), rect.bottom))
+
+    rect = QRectF(sPos, ePos)
+    if data.orientation() == BlockLayer.Vertical:
+        tp.setPaintPoint(pos=QPointF(sPos.x(), ePos.y()))
+    else:
+        tp.setPaintPoint(pos=QPointF(ePos.x(), sPos.y()))
+    if deep == 0:
+        tp.setPaintPoint(pos=rect.bottomRight())
+    return rect

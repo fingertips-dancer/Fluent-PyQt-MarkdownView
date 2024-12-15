@@ -31,8 +31,7 @@ class Container(QWidget):
         else:
             raise Exception()
         # 没有ast
-        if ast is None:
-            return None
+        if ast is None: return None
 
         contentItem = self.__contentItems.get(ast, None)  # 先去 显示池中寻找
         if contentItem:
@@ -40,7 +39,7 @@ class Container(QWidget):
         if len(self.__contentItemPoll):
             contentItem = self.__contentItemPoll.pop()
         else:
-            contentItem = ContentItem(parent=self.area(), cachePaint=self._cachePaint, ast=ast)
+            contentItem = ContentItem(parent=self.area(), ast=ast)
         self.__contentItems[ast] = contentItem
         contentItem.setParent(self)
         contentItem.setAST(ast)
@@ -52,10 +51,6 @@ class Container(QWidget):
         return contentItem
 
     def removeContentItem(self, ast):
-        # contentItem = self.__contentItems[ast]
-        # contentItem.hide()
-        # if ast in self.__nowShowAst:self.__nowShowAst.remove(ast)
-        # return
         contentItem = self.__contentItems.pop(ast)
         contentItem.reset()
         contentItem.hide()
@@ -64,7 +59,7 @@ class Container(QWidget):
             self.__nowShowAst.remove(ast)
 
     def createContentItem(self, ast) -> ContentItem:
-        _item = ContentItem(parent=self.area(), cachePaint=self._cachePaint, ast=ast)
+        _item = ContentItem(parent=self.area(), ast=ast)
         # _item.collapseRequested.connect(self.onCollapseRequestedEvent)
         _item.setParent(self)
         self.__contentItems[ast] = _item
@@ -183,6 +178,10 @@ class Container(QWidget):
             # 是排序第一个的ast
             if self.document().ast().children[0] in nowShowAst:
                 if self.__contentItems[nowShowAst[0]].y() != 0:
+                    # 如果移动,可能导致viewport中没有item
+                    # 需要调节 verticalScrollBar
+                    offset = self.__contentItems[nowShowAst[0]].y()
+                    area.verticalScrollBar().setValue(area.verticalScrollBar().value()-offset)
                     self.__contentItems[nowShowAst[0]].move(0, 0)
                     for ast in nowShowAst[1:]:
                         item = self.__contentItems[ast]
@@ -206,15 +205,14 @@ class Container(QWidget):
         self.__bottom = b if last_show_item.ast() is self.document().ast().children[-1] else guess
         self.setFixedHeight(max(self.__bottom, 0))
         self.setUpdatesEnabled(True)  # <--禁止重绘,防止闪烁
-        print("当前绘制, 显示数量:", len(self.__nowShowAst), last_show_item.geometry())
-        print("当前绘制, 绘制数量:", len(self.__contentItems), last_show_item.ast() is self.document().ast().children[-1])
-        print("当前绘制, 缓存数量:", len(self.__contentItemPoll), self.__bottom)
-        print("当前绘制, height:", self.height(), self.area().height(), area.verticalScrollBar().value())
+        # print("当前绘制, 显示数量:", len(self.__nowShowAst), last_show_item.geometry())
+        # print("当前绘制, 绘制数量:", len(self.__contentItems), last_show_item.ast() is self.document().ast().children[-1])
+        # print("当前绘制, 缓存数量:", len(self.__contentItemPoll), self.__bottom)
+        # print("当前绘制, height:", self.height(), self.area().height(), area.verticalScrollBar().value())
 
     def __init__(self, parent: AbstractMarkdownEdit):
         self.__area: AbstractMarkdownEdit or QScrollArea = parent
         self.__contentItems: t.Dict[MarkdownASTBase, ContentItem] = {}
-        self._cachePaint = CachePaint(self)
         self.__yCache: t.Dict[MarkdownASTBase, QRect] = {}
         self.__nowShowAst: t.List[MarkdownASTBase] = []
         self.__creating = False

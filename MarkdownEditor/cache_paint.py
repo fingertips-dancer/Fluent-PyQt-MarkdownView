@@ -2,10 +2,9 @@ import typing as t
 
 from PyQt5.QtCore import QMargins, QRect
 from PyQt5.QtCore import QPointF
-from PyQt5.QtGui import QPainter, QImage, QColor, QPixmap
+from PyQt5.QtGui import QPainter, QColor, QPixmap
 
 # from .cursor import MarkdownCursor
-from .abstruct import AbstractMarkDownDocument
 from .abstruct import AbstructCachePaint
 from .component import TextParagraph
 from .markdown_ast import MarkdownASTBase
@@ -52,30 +51,45 @@ class CachePaint(AbstructCachePaint):
     def renderContent(self, func, ast: MarkdownASTBase, data=None):
         self._paragraphs[-1].pullRenderCache(func=func, data=data, painter=self.painter(), ast=ast)
 
-    @paintMemory
-    def image(self, image: str, ast=None):
-        if image not in self.__mutilMedia:
-            self.__mutilMedia[image] = QImage(image)
-        image: QImage = self.__mutilMedia[image]
-        self._paragraphs[-1].pullRenderCache(func=TextParagraph.Render_Image,
-                                             data=image, painter=self.painter(), ast=ast)
-
     def render(self, resetCache=True) -> t.Dict[MarkdownASTBase, QPixmap]:
         """ 渲染 """
+
+        def _finish_a_ast_render():
+            if len(ast_part_pixmaps) > 0:  # merge mutil pixmap
+                pixmap = QPixmap(ast_part_pixmaps[0].width(), sum(pm.height() for pm in ast_part_pixmaps))
+                if pixmap.height() != 0:
+                    pixmap.fill(QColor(0, 0, 0, 0))
+                    painter, y = QPainter(pixmap), 0
+                    for pm in ast_part_pixmaps:
+                        painter.drawPixmap(0, y, pm)
+                        y += pm.height()
+                    pixmaps.append(pixmap)
+                    painter.end()
+                pbs, y = [], 0
+                for mp, part_CursorPluginBases in zip(ast_part_pixmaps, ast_part_CursorPluginBases):
+                    offest = QPointF(0, y)
+                    pbs += [(ast, b + offest) for ast, b in part_CursorPluginBases]
+                    y += mp.height()
+
+            if len(ast_part_pixmaps) != 0:
+                self._cachePxiamp[now_ast] = pixmap  # a pixmap for a ast
+                self._cacheCursorPluginBases[now_ast] = pbs
+                self._cacheTextParagraphs[now_ast] = ast_part_TextParagraphs
+
         pixmaps = []
         ast_part_pixmaps = []
         ast_part_CursorPluginBases = []
         ast_part_TextParagraphs = []
-        ast_part_PaintingGeometry = {}
         now_ast = None
         if resetCache:
             self._cachePxiamp.clear()
             self._cacheCursorPluginBases.clear()
             self._cacheTextParagraphs.clear()
-            self.cachePxiamp().clear()
             self._cachePaintingGeometry.clear()
 
-        for p in self._paragraphs:
+        the_len = len(self._paragraphs)
+
+        for idx, p in enumerate(self._paragraphs):
             p.setInPragraphReutrnSpace(self._inPragraphReutrnSpace)
             p.setOutPragraphReutrnSpace(self._outPragraphReutrnSpace)
             p.setPageMargins(self._margins)
@@ -83,34 +97,12 @@ class CachePaint(AbstructCachePaint):
             # render
             pximap_part = p.render()
             if p.ast() is not now_ast:  # <-- The ast now painteed transform
-                if len(ast_part_pixmaps) > 1:  # merge mutil pixmap
-                    pixmap = QPixmap(ast_part_pixmaps[0].width(), sum(pm.height() for pm in ast_part_pixmaps))
-                    pixmap.fill(QColor(0, 0, 0, 0))
-                    painter = QPainter(pixmap)
-                    y = 0
-                    for pm in ast_part_pixmaps:
-                        painter.drawPixmap(0, y, pm)
-                        y += pm.height()
-                    pixmaps.append(pixmap)
-                    painter.end()
-                    pbs, y = [], 0
-                    for mp, part_CursorPluginBases in zip(ast_part_pixmaps, ast_part_CursorPluginBases):
-                        offest = QPointF(0, y)
-                        pbs += [(ast, b + offest) for ast, b in part_CursorPluginBases]
-                        y += mp.height()
-
-                elif len(ast_part_pixmaps) == 1:
-                    pixmap = ast_part_pixmaps[0]
-                    pbs = ast_part_CursorPluginBases[0]
-
-                if len(ast_part_pixmaps) != 0:
-                    self._cachePxiamp[now_ast] = pixmap  # a pixmap for a ast
-                    self._cacheCursorPluginBases[now_ast] = pbs
-                    self._cacheTextParagraphs[now_ast] = ast_part_TextParagraphs
+                _finish_a_ast_render()
 
                 ast_part_pixmaps = []  # reset
                 ast_part_CursorPluginBases = []
                 ast_part_TextParagraphs = []
+
             # register
             ast_part_pixmaps.append(pximap_part)
             ast_part_CursorPluginBases.append(p.cursorBases())
@@ -118,13 +110,32 @@ class CachePaint(AbstructCachePaint):
 
             # update
             now_ast = p.ast()
-        return self._cachePxiamp
+        _finish_a_ast_render()
+        return
 
     def reset(self):
         self._paragraphs = []
 
+    def newSubParagraph(self):
+        """" 新的的子段落, 使用上下文来让子控件添加数据 """
+        tp = TextParagraph()
+
+        class proxy():
+            def __enter__(cls):
+                # 临时添加
+                self._paragraphs.append(tp)
+                return tp
+
+            def __exit__(cls, exc_type, exc_val, exc_tb):
+                self._paragraphs.pop(-1)
+                if exc_type is not None:
+                    raise exc_type
+                return False
+
+        return proxy()
+
     def newParagraph(self):
-        """新的段落 """
+        """新的根段落 """
         self._paragraphs.append(TextParagraph())
 
     def nowParagraph(self) -> TextParagraph:
@@ -167,25 +178,20 @@ class CachePaint(AbstructCachePaint):
     def cursorPluginBases(self, ast,
                           pos: t.Optional[int] = None,
                           returnAst: bool = False) -> t.Union[QPointF, t.List[QPointF]]:
-
         cps = self._cacheCursorPluginBases[ast] if returnAst else [p for ast, p in self._cacheCursorPluginBases[ast]]
         return cps[pos] if pos is not None else cps
 
-
     def lineHeight(self, ast, pos: int) -> int:
-        p = self.textParagraphs(ast=ast, pos=pos)
+        p: TextParagraph = self.textParagraphs(ast=ast, pos=pos)
         if p:
             return p.lineHeight()
-        else:
-            raise Exception(ast, sum(len(p.cursorBases()) for p in self.textParagraphs(ast)), "but", pos)
+        raise Exception(ast, sum(len(p.cursorBases()) for p in self.textParagraphs(ast)), "but", pos)
 
     def indentation(self, ast, pos: int) -> int:
-        ps = self.textParagraphs(ast=ast)
-        for p in ps:
-            if pos > len(p.cursorBases()):
-                pos -= len(p.cursorBases())
-                continue
+        p: TextParagraph = self.textParagraphs(ast=ast, pos=pos)
+        if p:
             return p.indentation()
+        raise Exception(ast, sum(len(p.cursorBases()) for p in self.textParagraphs(ast)), "but", pos)
 
     def paintGeometry(self, ast) -> QRect:
         pass

@@ -186,13 +186,11 @@ class MarkdownEdit(QScrollArea, AbstractMarkdownEdit):
 
     def cursorMoveTo(self, pos: t.Union[QPointF, QPoint]) -> None:
         """ overload """
-        ast, pos = self._container.cursorBaseIn(pos=pos)
-        if pos is not None:
-            self.cursor().setAST(ast=ast, pos=pos)
+        ast, _pos = self._container.cursorBaseIn(pos=pos)
+        if _pos is not None:
+            self.cursor().setAST(ast=ast, pos=_pos)
 
     def paintEvent(self, event: QPaintEvent) -> None:
-        if self.cursor().ast() not in self.__contentItems:
-            return
         # super(MarkdownEdit, self).paintEvent(event)
 
         # 1. 从缓存中获取图片绘制
@@ -201,6 +199,7 @@ class MarkdownEdit(QScrollArea, AbstractMarkdownEdit):
         painter.translate(-0, -self.verticalScrollBar().value())
 
         # 3. paint select content
+        painter.save()
         start_ast, start_pos, end_ast, end_pos = self.cursor().selectedASTs()
         if not (start_ast is end_ast and start_pos == end_pos):  # 不在原地
             color = ThemeColor.PRIMARY.color()
@@ -210,7 +209,7 @@ class MarkdownEdit(QScrollArea, AbstractMarkdownEdit):
             for ast_index in range(self.document().ast().children.index(start_ast),
                                    self.document().ast().children.index(end_ast) + 1):
                 ast = self.document().ast().children[ast_index]
-                if not self.__contentItems[ast].inViewport(): continue  # <--不再视图内,可以不显示
+                if self._container.contentItemCache(ast) is None: continue  # <--不再视图内,可以不显示
                 bs = [(i, p) for i, p in enumerate(self.cursorBases(ast=ast))]
                 _si = start_pos if ast is start_ast else 0
                 _ei = end_pos if ast is end_ast else len(bs)
@@ -225,11 +224,13 @@ class MarkdownEdit(QScrollArea, AbstractMarkdownEdit):
                     indentation = self.__contentItems[ast].indentation(pos=left_i)
                     left_x = left_p.x() if y == min(ys) else indentation + self._margins.left()
                     painter.drawRoundedRect(QRectF(left_x, left_p.y(), right_p.x() - left_x, lineHeight), r, r)
+        painter.restore()
 
         # 4. paint predit
-        lineHeight = self.__contentItems[self.cursor().ast()].lineHeight(pos=self.cursor().pos())
-        pulginBasePos = self.cursorBases(ast=self.cursor().ast(), pos=self.cursor().pos())
         if self._preEdit.preeditText() != "":
+            painter.save()
+            lineHeight = self._container.contentItemCache(self.cursor().ast()).lineHeight(pos=self.cursor().pos())
+            pulginBasePos = self.cursorBases(ast=self.cursor().ast(), pos=self.cursor().pos())
             font = self.__style.hintFont(font=painter.font(), ast="root")
             font.setPixelSize(int(lineHeight * 0.8))
             fm = QFontMetrics(font)
@@ -246,9 +247,13 @@ class MarkdownEdit(QScrollArea, AbstractMarkdownEdit):
             painter.setFont(font)
             painter.drawText(QPointF(pulginBasePos.x(), pulginBasePos.y() + lineHeight - fm.descent()),
                              self._preEdit.preeditText())
+            painter.restore()
 
         # 5.paint cursor
-        if self.cursor().isShowCursorShader():
+        if self.cursor().isShowCursorShader() and self._container.contentItemCache(self.cursor().ast()):
+            lineHeight = self._container.contentItemCache(self.cursor().ast()).lineHeight(pos=self.cursor().pos())
+            pulginBasePos = self.cursorBases(ast=self.cursor().ast(), pos=self.cursor().pos())
+            painter.setPen(Qt.black)
             if self._preEdit.preeditText() == "":
                 # paint cursor
                 painter.drawLine(pulginBasePos, QPointF(pulginBasePos.x(), pulginBasePos.y() + lineHeight))
@@ -274,13 +279,13 @@ class MarkdownEdit(QScrollArea, AbstractMarkdownEdit):
                     cursor.setSelectMode(mode=cursor.SELECT_MODE_SINGLE)
                 self.__contentItems[self.cursor().ast()].reset()
 
-        self._mouseMoveSelectSectionTimer.start(30)
         self.__mouseLeftButton = e.buttons() == Qt.LeftButton
         self.__mouseRightButton = e.buttons() == Qt.RightButton
 
     def mouseMoveEvent(self, e: QMouseEvent) -> None:
         view_pos = e.pos() + QPointF(0, self.verticalScrollBar().value())
         if e.buttons() == Qt.LeftButton:  # 按下左键拖动
+            self._mouseMoveSelectSectionTimer.start(30)
             self._updateCusorSelectSection(pos=view_pos)
         elif e.buttons() == Qt.NoButton:  # <---没有点击
             ast, pos = self._container.cursorBaseIn(pos=view_pos)

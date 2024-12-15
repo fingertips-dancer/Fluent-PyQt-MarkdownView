@@ -110,7 +110,7 @@ class MarkdownCursor(AbstructCursor):
         elif flag == self.MOVE_UP:  # 向上
             bs = self.parent().cursorBases(ast=self.ast())
             g = self.parent().geometryOf(self.ast())
-            next_ast = self.parent().astIn(pos=g.topRight() + QPoint(-1, -1))
+            next_ast = self.parent().astIn(pos=g.topRight() + QPoint(-1, -2))
             next_bs = self.parent().cursorBases(ast=next_ast) if next_ast else []
             cp = self.parent().cursorBases(ast=self.ast(), pos=self.pos())
             # all y value
@@ -122,7 +122,7 @@ class MarkdownCursor(AbstructCursor):
         elif flag == self.MOVE_DOWN:
             bs = self.parent().cursorBases(ast=self.ast())
             g = self.parent().geometryOf(self.ast())
-            next_ast = self.parent().astIn(pos=g.bottomRight() + QPoint(-1, 1))
+            next_ast = self.parent().astIn(pos=g.bottomRight() + QPoint(-1, 2))
             next_bs = self.parent().cursorBases(ast=next_ast) if next_ast else []
             cp = self.parent().cursorBases(ast=self.ast(), pos=self.pos())
             # all y value

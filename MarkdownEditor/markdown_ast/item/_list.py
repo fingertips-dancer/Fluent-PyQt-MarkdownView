@@ -3,8 +3,9 @@ import typing as t
 from PyQt5.QtGui import QFontMetrics
 
 from ..base import MarkdownASTBase
+from ...abstruct import AbstructCursor, AbstructCachePaint, BlockLayer
+from ...abstruct import AbstructTextParagraph as ATP
 from ...style import MarkdownStyle
-from ...abstruct import AbstructCursor, AbstructCachePaint, AbstructTextParagraph
 
 
 @MarkdownASTBase.registerAst("list_item")
@@ -19,8 +20,10 @@ class ListItem(MarkdownASTBase):
         return "".join([c.toMarkdown() for c in self.children])
 
     def render(self, ht: AbstructCachePaint, style: MarkdownStyle, cursor: AbstructCursor = None):
-        for c in self.children:
+        for i, c in enumerate(self.children):
             c.render(ht=ht, style=style, cursor=cursor)
+            if not isinstance(c, List):
+                ht.renderContent(func=ATP.Render_SoftBreak, ast=self)
 
     def segment(self) -> t.List[t.Tuple['MarkdownASTBase', int]]:
         s = []
@@ -59,22 +62,27 @@ class List(MarkdownASTBase):
     def render(self, ht: AbstructCachePaint, style: MarkdownStyle, cursor: AbstructCursor = None):
         font = style.hintFont(font=ht.painter().font(), ast="list")
         ht.painter().setFont(font)
-        # 可能是子list
-        if self.depth != 0:
-            ht.renderContent(func=AbstructTextParagraph.Render_SoftBreak, ast=self)
-            ht.newParagraph()
+        hp = ht.nowParagraph()
 
+        # # 可能是子list
+        # if self.depth != 0:
+        #     ht.renderContent(func=ATP.Render_SoftBreak, ast=self)
+        #     ht.newParagraph()
+        layer = BlockLayer()
         for i, c in enumerate(self.children):
-            ph = ht.nowParagraph()
-            ph.setIndentation(indentation=QFontMetrics(font).width(" " * 3 * self.depth + f"{i + 1}."))
-            ht.renderContent(func=AbstructTextParagraph.Render_SerialNumber, data=i + 1, ast=self)
-            ht.renderContent(func=AbstructTextParagraph.Render_HideText,
-                             data="    " * self.depth + (rf"{i + 1}. " if self.ordered else "- "), ast=self)
-            c.render(ht, style=style, cursor=cursor)
-            # 1.换行
-            if self.depth == 0 or i < len(self.children) - 1:
-                ht.renderContent(func=AbstructTextParagraph.Render_SoftBreak, ast=self)  # 软换行
-                ht.newParagraph()
+            # ph = ht.nowParagraph()
+            with ht.newSubParagraph() as sub_ph:
+                layer.addItem(sub_ph)
+                order_string = "    " * self.depth + (rf"{i + 1}. " if self.ordered else "- ")
+                sub_ph.setIndentation(indentation=QFontMetrics(font).width(" " * 3 * min(self.depth, 0) + f"{i + 1}."))
+                ht.renderContent(func=ATP.Render_SerialNumber, data=i + 1, ast=self)
+                ht.renderContent(func=ATP.Render_HideText, data=order_string, ast=self)
+                c.render(ht, style=style, cursor=cursor)
+
+        ht.renderContent(func=ATP.Render_ParagraphLayer, data=layer, ast=self)
+        # # 1.换行
+        # if self.depth == 0 or i < len(self.children) - 1:
+        #     ht.renderContent(func=AbstructTextParagraph.Render_SoftBreak, ast=self)  # 软换行
 
     def segment(self) -> t.List[t.Tuple['MarkdownASTBase', int]]:
         s = []

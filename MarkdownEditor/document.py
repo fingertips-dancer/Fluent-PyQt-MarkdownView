@@ -13,8 +13,6 @@ class MarkDownDocument(AbstractMarkDownDocument):
         self.__markdownAst.setText(markdown)
         print(self.__markdownAst.summary())
 
-
-
     def toMarkdown(self) -> str:
         return self.__markdownAst.toMarkdown()
 

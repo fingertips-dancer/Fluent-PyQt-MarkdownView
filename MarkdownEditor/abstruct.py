@@ -1,7 +1,7 @@
 import typing as t
 
-from PyQt5.QtCore import QPointF, QTimer, QRectF, QObject, QMargins, pyqtSignal, QPoint, QRect
-from PyQt5.QtGui import QPainter, QPen, QFont, QBrush, QColor, QTextDocument
+from PyQt5.QtCore import QPointF, QTimer, QRectF, QObject, QMargins, pyqtSignal, QPoint, QSize, QRect, Qt
+from PyQt5.QtGui import QPainter, QPen, QFont, QBrush, QColor, QTextDocument, QPixmap
 
 
 class AbstractMarkdownEdit():
@@ -212,9 +212,9 @@ class AbstructCursor(QObject):
 
 class AbstructTextParagraph():
     """ 一个绘制段落 """
-    Render_Image = 1
-    Render_Text = 2
-    Render_HideText = 3
+    Render_Image = 1  # 图像
+    Render_Text = 2  # 文本
+    Render_HideText = 3  # 隐藏文本
     Render_BlockLatexText = 4
     Render_BlockLatexImage = 5
     Render_InlineLatexImage = 6
@@ -223,6 +223,7 @@ class AbstructTextParagraph():
     Render_BlankLine = 9
     Render_SerialNumber = 10
     Render_InlineLatexText = 11
+    Render_ParagraphLayer = 12
 
     def __init__(self):
         self._cache: t.List[t.Tuple[t.Callable, t.Any, 'MarkdownASTBase', QFont, QBrush, QPen]] = []
@@ -236,75 +237,100 @@ class AbstructTextParagraph():
         self.__paragraph_ast: 'MarkdownASTBase' = None  # 段落的根节点
         self.__cursor_bases: t.List[t.Tuple["MarkdownASTBase", QPointF]] = []  # 光标的位置
 
-        # only
+        # --only--
+        # the property of background
         self.__indentation = 0  # 缩进
         self.__backgroundRaidus = 0  # 圆角半径
         self.__backgroundColor = QColor(0, 0, 0, 0)  # 背景颜色
         self.__backgroundEnable = False  # 使能
         self.__backgroundMargins = QMargins(0, 0, 0, 0)
+        # whether need to rerender
+        self.__needRerender = True
 
     def clearAllcursorBases(self) -> None:
         """ clear all cursor base"""
         self.__cursor_bases.clear()
 
-    def registerNowPaintingAstGeometry(self, ast):
+    def registerNowPaintingAst(self, ast) -> None:
         self.__now_painting_ast = ast
 
-    def addCursorBase(self, pos):
+    def addCursorBase(self, pos: t.Union[QPoint, QPointF, t.Iterable]) -> None:
         """ add a cursor base"""
-        self.__cursor_bases.append((self.__now_painting_ast, pos))
+        if isinstance(pos, (QPoint, QPointF)):
+            self.__cursor_bases.append((self.__now_painting_ast, pos))
+        else:
+            self.__cursor_bases += [(self.__now_painting_ast, p) for p in pos]
 
-    def setPaintPoint(self, pos):
+    def setPaintPoint(self, pos) -> None:
         """ 绘制点 """
         self.__painter_pos = pos
 
-    def setLineHeight(self, height: int or float):
+    def setLineHeight(self, height: int or float) -> None:
         """ 段落的高 """
         self.__lineHight = height
 
-    def setAST(self, ast: 'MarkdownASTBase'):
+    def setNeedRerender(self, need: bool) -> None:
+        """ 是否需要重新渲染 """
+        self.__needRerender = need
+
+    def setAST(self, ast: 'MarkdownASTBase') -> None:
         """ ast """
         self.__paragraph_ast = ast
 
-    def setStartY(self, y: float or int):
-        """ 绘制坐标"""
+    def initPaintPoint(self, y: float or int) -> None:
+        """ 初始化绘制坐标"""
+        self.setNeedRerender(True)
         self.__painter_pos = QPointF(self.margins().left() + self.__indentation, y)
 
-    def setViewWdith(self, width: float):
+    def setViewWdith(self, width: float) -> None:
         """ 窗口宽度 """
+        self.setNeedRerender(True)
         self.__viewWdith = width
 
-    def setPageMargins(self, margins: QMargins):
+    def setPageMargins(self, margins: QMargins) -> None:
         """ 绘制边距 """
+        self.setNeedRerender(True)
         self.__pageMargins = margins
 
-    def setIndentation(self, indentation):
+    def setIndentation(self, indentation) -> None:
         """ 缩进 """
+        self.setNeedRerender(True)
         self.__indentation = indentation
 
-    def setBackgroundColor(self, color: QColor):
+    def setBackgroundColor(self, color: QColor) -> None:
         """ 设置背景颜色 """
+        self.setNeedRerender(True)
         self.__backgroundColor = color
 
-    def setBackgroundRadius(self, radius: float):
+    def setBackgroundRadius(self, radius: float) -> None:
         """ 设置背景颜色 """
+        self.setNeedRerender(True)
         self.__backgroundRadius = radius
 
-    def setOutPragraphReutrnSpace(self, space: int):
+    def setOutPragraphReutrnSpace(self, space: int) -> None:
         """ 段落外缩进"""
+        self.setNeedRerender(True)
         self.__outPragraphReutrnSpace = space
 
-    def setInPragraphReutrnSpace(self, space: int):
+    def setInPragraphReutrnSpace(self, space: int) -> None:
         """ 段落内缩进 """
+        self.setNeedRerender(True)
         self.__inPragraphReutrnSpace = space
 
-    def setBackgroundEnable(self, enable: bool):
+    def setBackgroundEnable(self, enable: bool) -> None:
         """ 设置背景使能 """
+        self.setNeedRerender(True)
         self.__backgroundEnable = enable
 
-    def setBackgroundMargins(self, left, up, right, bottom):
+    def setBackgroundMargins(self, left, up, right, bottom) -> None:
         """ 设置背景使能 """
+        self.setNeedRerender(True)
         self.__backgroundMargins = QMargins(left, up, right, bottom)
+
+    """" operation """
+
+    def render(self) -> QPixmap:
+        raise NotImplementedError
 
     """ property """
 
@@ -320,7 +346,7 @@ class AbstructTextParagraph():
         """ property: 渲染项 """
         return len(self._cache)
 
-    def lineHeight(self) -> float:
+    def lineHeight(self) -> float or int:
         """ 段落的高 """
         return self.__lineHight
 
@@ -369,10 +395,44 @@ class AbstructTextParagraph():
         return self.__backgroundEnable
 
     def backgroundMargins(self) -> QMargins:
+        """ 背景的矿都"""
         return self.__backgroundMargins
 
-    def astGeometries(self) -> t.Dict["MarkdownAstBase", QRect]:
-        return self.__ast_geometry
+    def needRerender(self) -> bool:
+        """ 是否需要重新渲染 (例如:添加了新的渲染项)"""
+        return self.__needRerender
+
+    def size(self) -> QSize:
+        """ 根据绘制的内容确定size """
+        pixmap = self.render()
+        return pixmap.size()
+
+
+class BlockLayer():
+    Vertical = Qt.Vertical
+    Horizontal = Qt.Horizontal
+
+    def __init__(self, orientation: int = Qt.Vertical):
+        self.__orientation = orientation
+        self.__block_list: t.List[AbstructTextParagraph or BlockLayer] = []
+        self.__stretchs = []
+
+    def addItem(self, block: AbstructTextParagraph or 'BlockLayer', stretch=1) -> None:
+        self.__block_list.append(block)
+        self.__stretchs.append(stretch)
+
+    def count(self) -> int:
+        return len(self.__block_list)
+
+    def itemAt(self, idx: int) -> AbstructTextParagraph or 'BlockLayer':
+        return self.__block_list[idx]
+
+    def orientation(self):
+        return self.__orientation
+
+    def stretchs(self) -> t.List[int]:
+        return self.__stretchs
+
 
 
 class AbstructCachePaint():
@@ -391,6 +451,9 @@ class AbstructCachePaint():
         self._outPragraphReutrnSpace = 5
         # 显示范围,text item,对应的文本
         self._paragraphs: t.List[AbstructTextParagraph] = []
+
+    def newSubParagraph(self) -> "AbstructTextParagraph":
+        raise NotImplementedError
 
     def newParagraph(self):
         """ 创建一个新的 Paragraph """
@@ -422,3 +485,36 @@ class AbstructCachePaint():
     def nowParagraph(self) -> AbstructTextParagraph:
         """ 当前的 Paragraph """
         return self._paragraphs[-1]
+
+
+class RenderDelegate():
+    def __init__(self, ast: "MarkdownASTBase", pen: QPen, brush: QBrush, font: QFont, data=None):
+        self.__ast = ast
+        self.__pen = pen
+        self.__brush = brush
+        self.__font = font
+        self.__data = data
+
+    def render(self, painter, ) -> QPixmap:
+        pass
+
+    def paint(self, tp: AbstructTextParagraph, painter: QPainter):
+        raise NotImplementedError
+
+    def size(self) -> QSize:
+        pass
+
+    def ast(self):
+        return self.__ast
+
+    def pen(self):
+        return self.__pen
+
+    def brush(self):
+        return self.__brush
+
+    def font(self):
+        return self.__font
+
+    def data(self):
+        return self.__data

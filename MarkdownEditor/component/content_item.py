@@ -1,3 +1,4 @@
+import time
 import typing as t
 
 from PyQt5.QtCore import QMargins, pyqtSignal, QPoint
@@ -21,13 +22,13 @@ class ListItem(QListWidgetItem):
 
 
 class AbstractContentItem(QWidget):
-    def __init__(self, parent, cachePaint: CachePaint, ast: MarkdownASTBase):
+    def __init__(self, parent, ast: MarkdownASTBase):
         self.__view = parent
         self.__upItem: AbstractContentItem = None
         self.__downItem: AbstractContentItem = None
         super(AbstractContentItem, self).__init__(parent=parent)
         self.__ast: MarkdownASTBase = None
-        self._cachePaint: CachePaint = cachePaint
+        self._cachePaint: CachePaint = CachePaint(self)
         self._pixmapCache = None
         # set
         self.setAST(ast=ast)
@@ -114,11 +115,11 @@ class AbstractContentItem(QWidget):
 class ContentItem(AbstractContentItem):
     collapseRequested = pyqtSignal(AbstractContentItem)
 
-    def __init__(self, parent, cachePaint: CachePaint, ast: MarkdownASTBase):
+    def __init__(self, parent, ast: MarkdownASTBase):
         self.__renderWidth = 0
         self.__callopseButton: CollapseButton = None
         self.__isCollapsing = False
-        super(ContentItem, self).__init__(parent=parent, cachePaint=cachePaint, ast=ast)
+        super(ContentItem, self).__init__(parent=parent, ast=ast)
         self.__listItem = ListItem(ast=ast)
 
     def setAST(self, ast: MarkdownASTBase):
@@ -134,6 +135,7 @@ class ContentItem(AbstractContentItem):
         self.__isCollapsing = _is
 
     def render_(self):
+        st = time.time()
         temp = QPixmap(10, 10)
         painter = QPainter(temp)
         painter.setFont(self.markdownStyle().hintFont(font=QFont(), ast='root'))
@@ -150,7 +152,8 @@ class ContentItem(AbstractContentItem):
         painter.end()
         del temp, painter
         # 局部更新 不刷新缓存
-        pixmap = self._cachePaint.render(resetCache=False)[self.ast()]
+        self._cachePaint.render(resetCache=True)
+        pixmap = self._cachePaint.cachePxiamp(ast=self.ast())
         self._pixmapCache = pixmap
         # 计算需要的 verticalScroll
         self.setFixedHeight(pixmap.height())
@@ -162,11 +165,10 @@ class ContentItem(AbstractContentItem):
             self.__callopseButton.setFixedSize(int(lh * 0.618), int(lh * 0.618))
             self.__callopseButton.move(self.pageMargins().left() - self.__callopseButton.width(),
                                        (lh - self.__callopseButton.height()) // 2)
-
         return pixmap
 
     def resizeEvent(self, event: QResizeEvent) -> None:
-        if self.inViewport() or self.cursor().ast() not in self._cachePaint.cachePxiamp():
+        if self.inViewport() or self._pixmapCache is None:
             self.setFixedWidth(self.viewpot().width())
             super(ContentItem, self).resizeEvent(event)
         else:
