@@ -218,7 +218,9 @@ class Container(QWidget):
         self.__creating = False
         self.__bottom = 0  # 底部坐标
         self.__contentItemPoll: t.Set[ContentItem] = set()
+
         super(Container, self).__init__(parent)
+        self.setStyleSheet("background-color:transparent;")
         self.setMouseTracking(True)  # 鼠标追踪
 
         # auto update

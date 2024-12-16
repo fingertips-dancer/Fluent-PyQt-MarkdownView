@@ -51,6 +51,13 @@ class TableHead(MarkdownASTBase):
         isShowHide = False if cursor is None else cursor.isIn(ast=self)
         ht.painter().setFont(style.hintFont(font=ht.painter().font(), ast="paragraph"))
         ht.painter().setPen(style.hintPen(pen=ht.painter().pen(), ast="paragraph"))
+        hp = ht.nowParagraph()
+
+        # background
+        hp.setBackgroundEnable(True)
+        hp.setBackgroundMargins(*style.hintBackgroundMargins(ast="table th"))
+        hp.setBackgroundRadius(style.hintBorderRadius(ast="table th"))
+        hp.setBackgroundColor(style.hintBackgroundColor(ast="table th"))
 
         layer = BlockLayer(orientation=BlockLayer.Horizontal)
         for c in self.children:
@@ -82,33 +89,15 @@ class TableBody(MarkdownASTBase):
         ht.painter().setFont(style.hintFont(font=ht.painter().font(), ast="paragraph"))
         ht.painter().setPen(style.hintPen(pen=ht.painter().pen(), ast="paragraph"))
         layer = BlockLayer(orientation=BlockLayer.Vertical)
-        for c in self.children:
+        for idx, c in enumerate(self.children):
             with ht.newSubParagraph() as sub_ph:
                 layer.addItem(sub_ph)
+                sub_ph.setBackgroundEnable(True)
+                sub_ph.setBackgroundMargins(*style.hintBackgroundMargins(ast="table tr", pseudo=f"nth-child({idx})"))
+                sub_ph.setBackgroundRadius(style.hintBorderRadius(ast="table tr", pseudo=f"nth-child({idx})"))
+                sub_ph.setBackgroundColor(style.hintBackgroundColor(ast="table tr", pseudo=f"nth-child({idx})"))
                 c.render(ht=ht, style=style, cursor=cursor)
         ht.renderContent(func=ATP.Render_ParagraphLayer, data=layer, ast=self)
-
-
-@MarkdownASTBase.registerAst("table_cell")
-class TableCell(MarkdownASTBase):
-    type: str
-    align: str
-    head: bool
-    children: t.List["MarkdownASTBase"]
-    propertys = ["type", "children"]
-    attrs = ["align", "head"]
-
-    def toMarkdown(self) -> str:
-        return rf''.join(c.toMarkdown() for c in self.children)
-
-    def render(self, ht: AbstructCachePaint, style: MarkdownStyle, cursor: AbstructCursor = None):
-        isShowHide = False if cursor is None else cursor.isIn(ast=self)
-        ht.painter().setFont(style.hintFont(font=ht.painter().font(), ast="paragraph"))
-        ht.painter().setPen(style.hintPen(pen=ht.painter().pen(), ast="paragraph"))
-        for c in self.children:
-            c.render(ht=ht, style=style, cursor=cursor)
-        ht.renderContent(func=ATP.Render_HardBreak, ast=self)
-
 
 
 @MarkdownASTBase.registerAst("table_row")
@@ -137,3 +126,24 @@ class TableRow(MarkdownASTBase):
                 layer.addItem(sub_ph)
                 c.render(ht=ht, style=style, cursor=cursor)
         ht.renderContent(func=ATP.Render_ParagraphLayer, data=layer, ast=self)
+
+
+@MarkdownASTBase.registerAst("table_cell")
+class TableCell(MarkdownASTBase):
+    type: str
+    align: str
+    head: bool
+    children: t.List["MarkdownASTBase"]
+    propertys = ["type", "children"]
+    attrs = ["align", "head"]
+
+    def toMarkdown(self) -> str:
+        return rf''.join(c.toMarkdown() for c in self.children)
+
+    def render(self, ht: AbstructCachePaint, style: MarkdownStyle, cursor: AbstructCursor = None):
+        isShowHide = False if cursor is None else cursor.isIn(ast=self)
+        ht.painter().setFont(style.hintFont(font=ht.painter().font(), ast="paragraph"))
+        ht.painter().setPen(style.hintPen(pen=ht.painter().pen(), ast="paragraph"))
+        for c in self.children:
+            c.render(ht=ht, style=style, cursor=cursor)
+        ht.renderContent(func=ATP.Render_HardBreak, ast=self)

@@ -240,7 +240,7 @@ class AbstructTextParagraph():
         # --only--
         # the property of background
         self.__indentation = 0  # 缩进
-        self.__backgroundRaidus = 0  # 圆角半径
+        self.__backgroundRadius = 0  # 圆角半径
         self.__backgroundColor = QColor(0, 0, 0, 0)  # 背景颜色
         self.__backgroundEnable = False  # 使能
         self.__backgroundMargins = QMargins(0, 0, 0, 0)

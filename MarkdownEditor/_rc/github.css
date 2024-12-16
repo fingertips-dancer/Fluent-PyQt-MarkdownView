@@ -75,3 +75,24 @@ thematic_break {
     color: rgb(125, 125, 125);
     border-width: 2px;
 }
+
+/** 表格 **/
+table th {
+    font-weight: bold;
+    border: 1px solid #dfe2e5;
+    border-bottom: 0;
+    border-radius: 0;
+    margin: 0;
+    background-color: rgba(0,159,170,10);
+    padding: 6px 13px;
+}
+
+
+
+table tr:nth-child(2n) {
+    background-color: rgb(255,255,255);
+}
+
+table tr:nth-child(2n - 1) {
+    background-color: rgb(245,245,245);
+}

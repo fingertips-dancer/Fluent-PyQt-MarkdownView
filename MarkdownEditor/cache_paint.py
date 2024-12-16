@@ -129,6 +129,7 @@ class CachePaint(AbstructCachePaint):
             def __exit__(cls, exc_type, exc_val, exc_tb):
                 self._paragraphs.pop(-1)
                 if exc_type is not None:
+                    print(exc_type)
                     raise exc_type
                 return False
 

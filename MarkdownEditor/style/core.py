@@ -1,78 +1,36 @@
-import re
 import typing as t
 
-from PyQt5.QtCore import Qt
+import parse
 from PyQt5.QtGui import QFont, QPen, QColor
+from functools import cache
+from . import utils
 
-_global = "global"
-default = 'default'
-font = 'font'
-pen = 'pen'
-brush = 'brush'
-pointsize = "pointsize"
+nthChildTemplate = parse.compile("nth-child({})")
 
 
 class MarkdownStyle():
-    defaultStyle = {
-        default: {pointsize: 20, brush: Qt.NoBrush, pen: Qt.NoPen},
-        "header": {}
-    }
-    fontType = 'Arial'
-    headerSize = [36, 34, 32, 30, 28, 26]
-    pragraphSize = 20
-
     @classmethod
     def create(cls, string: str) -> 'MarkdownStyle':
         # 解析 CSS 内容
-        import cssutils
-        css_parser = cssutils.CSSParser()
-        css_sheet = css_parser.parseString(string)
-
-        # 遍历所有规则
-        rule_dict = {}
-        for rule in css_sheet:
-            if rule.type == rule.STYLE_RULE:
-                # prase ':'
-                if ":" in rule.selectorText:
-                    selections, pseudo = rule.selectorText.split(":")
-                else:
-                    selections, pseudo = rule.selectorText, ""
-
-                # prase ','
-                selections = selections.split(",")
-
-                # parse value
-                for select in selections:
-                    # remove all ’ ‘
-                    select = select.strip(" ")
-                    # considerate pseudo
-                    if pseudo: select = f"{select}:{pseudo}"
-
-                    sub_rule = rule_dict.get(select, {})
-
-                    rule_dict[select] = sub_rule
-
-                    for property in rule.style:
-                        value: str = property.value
-                        print(select,property.name,property.value)
-                        if property.name == "padding":
-                            value = tuple([int(e) for e in value.split("px")[:4]])
-                        elif property.name == "font-size":
-                            value = int(value.strip("px"))
-                        elif property.name == "border-width":
-                            value = int(value.strip("px"))
-                        elif property.name == "color":
-                            if property.name.find("rgb") or property.name.find("rgba"):
-                                numbers = re.findall(r'\d+', value)  # 使用正则表达式提取所有数字
-                                numbers = list(map(int, numbers))  # 将提取出的字符串数字转换为整数
-                                value = numbers
-
-                        sub_rule[property.name] = value
+        from .parse import Parser
+        rule_dict = Parser.toDict(string)
         print(rule_dict)
         return MarkdownStyle(rule=rule_dict)
-
+    @cache
     def _autoToKey(self, ast, pseudo) -> str:
+        # 伪类装饰器
         if pseudo != "":
+            # 层叠样式表
+            if "nth-child" in pseudo:
+                # 选择可能的 nth-child
+                partten = f"{ast}:nth-child"
+                keys = (k for k in self._rule.keys() if partten in k)
+                fr = int(nthChildTemplate.search(pseudo).fixed[0])
+                for k in keys:
+                    kr_ = nthChildTemplate.search(k).fixed[0]
+                    if utils.paserMatch_nth_child(source=kr_, target=fr):
+                        pseudo = f'nth-child({kr_})'
+                        break
             ast = f"{ast}:{pseudo}"
 
         if ast not in self._rule:
@@ -122,24 +80,37 @@ class MarkdownStyle():
             indentation = 0
         return indentation
 
-    def hintBackgroundColor(self, ast: str) -> QColor:
+    def hintBackgroundColor(self, ast: str, pseudo: str = "") -> QColor:
         """ 背景颜色 """
         c = QColor(0, 0, 0, 0)
         if ast == "block_math":
             c = QColor(16, 16, 16, 16)
 
+        key = self._autoToKey(ast=ast, pseudo=pseudo)
+        sub_rule = self._rule[key]
+        if "background-color" in sub_rule:
+            c = QColor(*sub_rule["background-color"])
+
         return c
 
-    def hintBackgroundRadius(self, ast: str) -> float:
+    def hintBorderRadius(self, ast: str, pseudo: str = "") -> float:
         """ 背景圆角半径 """
-        c = 15
+        c = 0
+        key = self._autoToKey(ast=ast, pseudo=pseudo)
+        sub_rule = self._rule[key]
+        if "border-radius" in sub_rule:
+            c = sub_rule["border-radius"]
         return c
 
-    def hintBackgroundMargins(self, ast: str) -> t.Tuple[int, int, int, int]:
+    def hintBackgroundMargins(self, ast: str, pseudo: str = "") -> t.Tuple[int, int, int, int]:
         if ast == "block_math":
             return 25, 25, 25, 25
-        else:
-            return self._rule[ast]["padding"]
+        padding = (0, 0, 0, 0)
+        key = self._autoToKey(ast=ast, pseudo=pseudo)
+        sub_rule = self._rule[key]
+        if "padding" in sub_rule:
+            padding = sub_rule["padding"]
+        return padding
 
 
 if __name__ == "__main__":
@@ -148,7 +119,7 @@ if __name__ == "__main__":
     # 读取 CSS 文件
     css_file = 'E:\study\My-GitHub-Project\Fluent-PyQt-MarkdownView\MarkdownEditor\_rc\github.css'
 
-    with open(css_file, 'r',encoding="utf8") as f:
+    with open(css_file, 'r', encoding="utf8") as f:
         css_content = f.read()
 
     MarkdownStyle.create(css_content)

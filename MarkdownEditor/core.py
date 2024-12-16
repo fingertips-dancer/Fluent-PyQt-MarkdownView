@@ -106,7 +106,7 @@ class MarkdownEdit(QScrollArea, AbstractMarkdownEdit):
 
         # connect
         # self.verticalScrollBar().valueChanged.connect(self.onScrollValueChangedEvent)
-        self.verticalScrollBar().valueChanged.connect(self.update)
+        #self.verticalScrollBar().valueChanged.connect(self.update)
         self._container.itemCreated.connect(self.onItemCreatedEvent)
         self._container.itemCreatingStarted.connect(self.loadProgressBar.show)
         self._container.itemCreatingFinished.connect(self.loadProgressBar.hide)

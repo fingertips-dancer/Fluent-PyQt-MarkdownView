@@ -24,7 +24,7 @@ class BlockCode(MarkdownASTBase):
         ph.setBackgroundMargins(*style.hintBackgroundMargins(ast='block_math'))
         ph.setIndentation(indentation=style.hintIndentation(ast="block_math"))
         ph.setBackgroundColor(color=style.hintBackgroundColor(ast="block_math"))
-        ph.setBackgroundRadius(radius=style.hintBackgroundRadius(ast="block_math"))
+        ph.setBackgroundRadius(radius=style.hintBorderRadius(ast="block_math"))
         if isShowHide:
             # ```self.info\n
             # self.raw + \n
