@@ -225,6 +225,10 @@ class AbstructTextParagraph():
     Render_InlineLatexText = 11
     Render_ParagraphLayer = 12
 
+    AlignLeft = Qt.AlignLeft
+    AlignCenter = Qt.AlignCenter
+    AlignRight = Qt.AlignRight
+
     def __init__(self):
         self._cache: t.List[t.Tuple[t.Callable, t.Any, 'MarkdownASTBase', QFont, QBrush, QPen]] = []
         self.__viewWdith = 512
@@ -246,6 +250,8 @@ class AbstructTextParagraph():
         self.__backgroundMargins = QMargins(0, 0, 0, 0)
         # whether need to rerender
         self.__needRerender = True
+        # alignment method
+        self.__align = self.AlignLeft
 
     def clearAllcursorBases(self) -> None:
         """ clear all cursor base"""
@@ -268,6 +274,11 @@ class AbstructTextParagraph():
     def setLineHeight(self, height: int or float) -> None:
         """ 段落的高 """
         self.__lineHight = height
+
+    def setAlign(self, align: int):
+        """ 对齐方式 """
+        assert align in (self.AlignLeft, self.AlignCenter, self.AlignRight), ""
+        self.__align = align
 
     def setNeedRerender(self, need: bool) -> None:
         """ 是否需要重新渲染 """
@@ -398,6 +409,10 @@ class AbstructTextParagraph():
         """ 背景的矿都"""
         return self.__backgroundMargins
 
+    def align(self) -> int:
+        """ 对齐 """
+        return self.__align
+
     def needRerender(self) -> bool:
         """ 是否需要重新渲染 (例如:添加了新的渲染项)"""
         return self.__needRerender
@@ -432,7 +447,6 @@ class BlockLayer():
 
     def stretchs(self) -> t.List[int]:
         return self.__stretchs
-
 
 
 class AbstructCachePaint():

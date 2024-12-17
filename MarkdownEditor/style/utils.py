@@ -4,14 +4,15 @@ import time
 from sympy import solve
 from sympy import symbols
 from sympy.parsing.sympy_parser import parse_expr
+from functools import cache
 
 _nSymbol = symbols("n")
 
-
+@cache
 def paserMatch_nth_child(source: str, target: int) -> bool:
     """ 匹配 nth-child"""
     st = time.time()
-    # 使用正则表达式替换数字和n的组合
+    # 使用正则表达式替换数字和n的隐式乘法
     # 正则表达式：r'(\d+)(n)' 匹配数字后跟着字母n
     source = re.sub(r'(\d+)(n)', r'\1*\2', source)
     source = re.sub(r'(n)(\d+)', r'\1*\2', source)

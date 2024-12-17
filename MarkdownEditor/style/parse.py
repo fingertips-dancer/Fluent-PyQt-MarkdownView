@@ -57,7 +57,7 @@ class Parser():
 @Parser.register("padding")
 def padding(string: str):
     # 使用 re.findall 查找所有匹配的结果
-    matches = re.findall(r'(\d+)px', string)
+    matches = re.findall(r'(\d+)', string)
     ps = tuple(int(t) for t in matches)
     if len(ps) == 4:
         ps = ps

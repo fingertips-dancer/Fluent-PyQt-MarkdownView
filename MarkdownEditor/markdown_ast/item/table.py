@@ -49,8 +49,8 @@ class TableHead(MarkdownASTBase):
 
     def render(self, ht: AbstructCachePaint, style: MarkdownStyle, cursor: AbstructCursor = None):
         isShowHide = False if cursor is None else cursor.isIn(ast=self)
-        ht.painter().setFont(style.hintFont(font=ht.painter().font(), ast="paragraph"))
-        ht.painter().setPen(style.hintPen(pen=ht.painter().pen(), ast="paragraph"))
+        ht.painter().setFont(style.hintFont(font=ht.painter().font(), ast="table th"))
+        ht.painter().setPen(style.hintPen(pen=ht.painter().pen(), ast="table th"))
         hp = ht.nowParagraph()
 
         # background
@@ -144,6 +144,8 @@ class TableCell(MarkdownASTBase):
         isShowHide = False if cursor is None else cursor.isIn(ast=self)
         ht.painter().setFont(style.hintFont(font=ht.painter().font(), ast="paragraph"))
         ht.painter().setPen(style.hintPen(pen=ht.painter().pen(), ast="paragraph"))
+        ph = ht.nowParagraph()
+        ph.setAlign({"left": ph.AlignLeft, "right": ph.AlignRight, "center": ph.AlignCenter}[self.align])
         for c in self.children:
             c.render(ht=ht, style=style, cursor=cursor)
         ht.renderContent(func=ATP.Render_HardBreak, ast=self)
